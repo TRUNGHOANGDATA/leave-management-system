@@ -42,13 +42,30 @@ export default function ResetPasswordPage() {
 
         setIsLoading(true);
         try {
+            // Check session
+            let { data: { session } } = await supabase.auth.getSession();
+
+            // Fallback: If no session but hash exists (URL from email), try to set session manually
+            if (!session && window.location.hash && window.location.hash.includes("access_token")) {
+                console.log("Attempting to parse session from URL hash...");
+                const { data: { session: urlSession }, error: urlError } = await supabase.auth.getSession();
+                if (urlSession) session = urlSession;
+            }
+
+            if (!session) {
+                throw new Error("Không tìm thấy phiên đăng nhập. Hãy thử tải lại trang hoặc yêu cầu link mới.");
+            }
+
             const { error } = await supabase.auth.updateUser({ password });
             if (error) throw error;
 
             toast({ title: "Đổi mật khẩu thành công! ✅", description: "Đang chuyển về trang đăng nhập..." });
+
+            await supabase.auth.signOut();
             setTimeout(() => router.push("/login"), 2000);
         } catch (err: any) {
-            toast({ variant: "destructive", title: "Lỗi", description: err.message });
+            console.error("Reset Password Error:", err);
+            toast({ variant: "destructive", title: "Lỗi", description: err.message || "Đã có lỗi xảy ra." });
         } finally {
             setIsLoading(false);
         }
