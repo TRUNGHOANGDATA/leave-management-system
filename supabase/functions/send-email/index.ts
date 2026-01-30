@@ -114,7 +114,7 @@ serve(async (req) => {
       <head>
         <meta charset="UTF-8">
         <style>
-          body { font-family: sans-serif; line-height: 1.6; color: #333; }
+          body { font-family: 'Roboto', 'Segoe UI', Arial, sans-serif; line-height: 1.6; color: #333; }
           .container { max-width: 600px; margin: 0 auto; padding: 20px; }
         </style>
       </head>
