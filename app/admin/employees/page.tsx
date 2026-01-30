@@ -2,6 +2,7 @@
 
 import React, { useState, useRef, useMemo, useCallback, useEffect } from 'react';
 import * as XLSX from 'xlsx';
+import { supabase } from '@/lib/supabaseClient';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -379,7 +380,7 @@ const EmployeeEditDialog = ({
 };
 
 export default function EmployeeManagementPage() {
-    const { addUser, removeUser, addBulkUsers, updateUser, setUsers, settings, currentUser } = useApp(); // Connect to App Context
+    const { addUser, removeUser, addBulkUsers, updateUser, setUsers, settings, currentUser, refreshData } = useApp(); // Connect to App Context
     const [employees, setEmployees] = useState<Employee[]>([]);
     const [searchTerm, setSearchTerm] = useState("");
     const [departmentFilter, setDepartmentFilter] = useState("all");
@@ -547,28 +548,32 @@ export default function EmployeeManagementPage() {
                 if (newUsers.length > 0) {
                     await addBulkUsers(newUsers);
 
-                    // Pass 2: Update manager IDs after data is refreshed
-                    // Give DB and refresh some time to settle
-                    await new Promise(resolve => setTimeout(resolve, 800));
+                    // Pass 2: Update manager IDs using fresh DB data
+                    // Fetch fresh user list directly from Supabase (not React state)
+                    const { data: freshUsers, error: fetchError } = await supabase
+                        .from('users')
+                        .select('id, email');
 
-                    // Now settings.users should include all newly inserted users
-                    for (const newUser of newUsers) {
-                        const managerEmail = (newUser as any)._tempManagerEmail;
-                        if (managerEmail) {
-                            // Find manager by email in the refreshed user list
-                            const manager = settings.users.find(u => u.email.toLowerCase() === managerEmail);
-                            if (manager) {
-                                // Find the newly created user by email to get their actual DB ID
-                                const createdUser = settings.users.find(u => u.email === newUser.email);
-                                if (createdUser) {
-                                    // Update manager ID
-                                    await updateUser({
-                                        id: createdUser.id,
-                                        managerId: manager.id
-                                    });
+                    if (!fetchError && freshUsers) {
+                        for (const newUser of newUsers) {
+                            const managerEmail = (newUser as any)._tempManagerEmail;
+                            if (managerEmail) {
+                                // Find manager by email in fresh DB data
+                                const manager = freshUsers.find((u: { id: string, email: string }) => u.email?.toLowerCase() === managerEmail);
+                                // Find the newly created user by email
+                                const createdUser = freshUsers.find((u: { id: string, email: string }) => u.email === newUser.email);
+
+                                if (manager && createdUser) {
+                                    // Direct Supabase update
+                                    await supabase
+                                        .from('users')
+                                        .update({ manager_id: manager.id })
+                                        .eq('id', createdUser.id);
                                 }
                             }
                         }
+                        // Final refresh to show updated data
+                        await refreshData();
                     }
                 }
 
