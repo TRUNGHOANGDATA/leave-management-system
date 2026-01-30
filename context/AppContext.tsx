@@ -271,30 +271,28 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
     useEffect(() => {
         let mounted = true;
-        let profileFetched = false; // Prevent duplicate fetches
 
+        // 1. Check session immediately on mount
+        const initAuth = async () => {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (session?.user && mounted) {
+                await fetchUserProfile(session.user.id);
+            }
+        };
+        initAuth();
+
+        // 2. Listen for auth changes (login, logout, token refresh)
         const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
             console.log("Auth Event:", event);
 
-            if (session?.user && !profileFetched) {
-                profileFetched = true;
-                if (mounted) await fetchUserProfile(session.user.id);
-            } else if (!session) {
+            if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+                if (session?.user && mounted) {
+                    await fetchUserProfile(session.user.id);
+                }
+            } else if (event === 'SIGNED_OUT') {
                 if (mounted) setCurrentUser(null);
             }
         });
-
-        // Check initial session only if onAuthStateChange hasn't fired yet
-        // This handles page refresh scenarios
-        setTimeout(async () => {
-            if (!profileFetched && mounted) {
-                const { data: { session } } = await supabase.auth.getSession();
-                if (session?.user && !profileFetched && mounted) {
-                    profileFetched = true;
-                    await fetchUserProfile(session.user.id);
-                }
-            }
-        }, 100); // Small delay to let onAuthStateChange fire first
 
         return () => {
             mounted = false;
