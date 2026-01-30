@@ -55,6 +55,7 @@ interface Employee {
     managerName: string;
     email: string;
     role: UserRole; // Added role field
+    employeeCode?: string;
 }
 
 const toTitleCase = (str: string) => {
@@ -409,6 +410,7 @@ export default function EmployeeManagementPage() {
                 email: u.email,
                 role: u.role,
                 department: u.department,
+                employeeCode: u.employeeCode,
                 jobTitle: u.role === 'manager' ? 'Quản lý' : u.role === 'director' ? 'Giám đốc' : 'Nhân viên',
                 workLocation: "Văn phòng", // Default
                 managerId: u.managerId || "",
@@ -428,6 +430,7 @@ export default function EmployeeManagementPage() {
             role: e.role,
             department: e.department,
             managerId: e.managerId,
+            employeeCode: e.employeeCode,
             avatarUrl: `/avatars/${String(Math.floor(Math.random() * 5) + 1).padStart(2, '0')}.png` // Random avatar
         }));
         setUsers(newUsers);
@@ -631,6 +634,7 @@ export default function EmployeeManagementPage() {
                                 <TableHeader className="sticky top-0 bg-slate-50 z-20 shadow-sm">
                                     <TableRow className="hover:bg-slate-50">
                                         <TableHead className="w-[50px] font-bold text-slate-700">STT</TableHead>
+                                        <TableHead className="min-w-[100px] font-bold text-slate-700">Mã NV</TableHead>
                                         <TableHead className="min-w-[180px] font-bold text-slate-700">Họ và tên</TableHead>
                                         <TableHead className="min-w-[150px] font-bold text-slate-700">Phòng ban</TableHead>
                                         <TableHead className="min-w-[100px] font-bold text-slate-700">Khoa/Vị trí</TableHead>
@@ -643,6 +647,7 @@ export default function EmployeeManagementPage() {
                                     {filteredEmployees.map((emp, index) => (
                                         <TableRow key={emp.id}>
                                             <TableCell className="text-slate-500 text-sm">{emp.order}</TableCell>
+                                            <TableCell className="text-slate-700 font-mono text-xs">{emp.employeeCode || "---"}</TableCell>
                                             <TableCell className="font-medium text-sm text-slate-900">
                                                 <div>{emp.fullName}</div>
                                                 <div className="text-[10px] text-slate-400">{emp.jobTitle}</div>

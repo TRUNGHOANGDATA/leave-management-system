@@ -20,6 +20,7 @@ export interface User {
     department: string;
     managerId?: string; // ID of the manager who approves requests
     avatarUrl?: string;
+    employeeCode?: string; // Custom Code: NV_0001
 }
 
 export interface LeaveRequest {
@@ -171,7 +172,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
                 role: u.role as UserRole,
                 department: u.department || "",
                 managerId: u.manager_id,
-                avatarUrl: u.avatar_url
+                avatarUrl: u.avatar_url,
+                employeeCode: u.employee_code || undefined
             }));
 
             // Map Requests
@@ -284,7 +286,22 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     };
 
     const addUser = async (user: User) => {
-        setSettings(prev => ({ ...prev, users: [...prev.users, user] }));
+        // Generate Employee Code if not provided
+        let newCode = user.employeeCode;
+        if (!newCode) {
+            const existingCodes = settings.users
+                .map(u => u.employeeCode)
+                .filter(c => c && c.startsWith("NV_"))
+                .map(c => parseInt(c?.split("_")[1] || "0"));
+
+            const maxNum = existingCodes.length > 0 ? Math.max(...existingCodes) : 0;
+            newCode = `NV_${String(maxNum + 1).padStart(4, "0")}`;
+        }
+
+        const userWithCode = { ...user, employeeCode: newCode };
+
+        setSettings(prev => ({ ...prev, users: [...prev.users, userWithCode] }));
+
         try {
             const { error } = await supabase.from('users').insert({
                 email: user.email,
@@ -292,7 +309,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
                 role: user.role,
                 department: user.department,
                 manager_id: user.managerId,
-                avatar_url: user.avatarUrl
+                avatar_url: user.avatarUrl,
+                employee_code: newCode
             });
             if (error) console.error("Add User Error", error);
             else refreshData();
@@ -311,7 +329,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
                 role: user.role,
                 department: user.department,
                 manager_id: user.managerId,
-                avatar_url: user.avatarUrl
+                avatar_url: user.avatarUrl,
+                // employee_code: user.employeeCode // Usually don't update code, but can if needed
             }).eq('id', user.id);
             if (error) console.error("Update User Error", error);
             else refreshData();

@@ -432,7 +432,7 @@ export default function Dashboard() {
                             <div className="space-y-3 pt-2 border-t border-slate-200/50">
                                 <div className="flex justify-between text-sm">
                                     <span className="text-slate-500">Mã nhân viên</span>
-                                    <span className="font-medium text-slate-700">{currentUser?.id}</span>
+                                    <span className="font-medium text-slate-700">{currentUser?.employeeCode || "..."}</span>
                                 </div>
                                 <div className="flex justify-between text-sm">
                                     <span className="text-slate-500">Phòng ban</span>
