@@ -69,7 +69,8 @@ interface AppContextType {
     currentUser: User | null;
     notificationCount: number;
     markNotificationRead: (id: string) => Promise<void>;
-    login: (userId: string) => void;
+    login: (path?: string) => void;
+    logout: () => void;
     setWorkSchedule: (schedule: WorkScheduleType) => void;
     addHoliday: (date: Date, name: string) => void;
     removeHoliday: (dateStr: string) => void;
@@ -98,7 +99,8 @@ const AppContext = createContext<AppContextType>({
     currentUser: null,
     notificationCount: 0,
     markNotificationRead: async () => { },
-    login: () => { },
+    login: (path?: string) => { },
+    logout: async () => { },
     setWorkSchedule: () => { },
     addHoliday: () => { },
     removeHoliday: () => { },
@@ -237,26 +239,62 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         refreshData().then(() => setIsLoaded(true));
     }, []);
 
-    // Initial Login - Auto select first user if no current user
+    // --- Authentication ---
     useEffect(() => {
-        if (isLoaded && settings.users.length > 0 && !currentUser) {
-            const savedUser = localStorage.getItem("leaveApp_v4_user_id_ref"); // Changed key to avoid conflict with old obj
-            if (savedUser) {
-                const user = settings.users.find(u => u.id === savedUser);
-                setCurrentUser(user || settings.users[0]);
+        const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
+            if (session?.user) {
+                // Determine user info
+                // Need to ensure users are loaded or fetch specific user
+                // Best pattern: Fetch user profile directly or ensure users list is loaded first
+                if (settings.users.length > 0) {
+                    const profile = settings.users.find(u => u.id === session.user.id);
+                    if (profile) setCurrentUser(profile);
+                    else {
+                        // Fallback: If settings.users not loaded yet or profile missing (sync lag)
+                        // For now, let refreshData handle it or wait for next render
+                        // Or Force fetch
+                        const { data: singleUser } = await supabase.from('users').select('*').eq('id', session.user.id).single();
+                        if (singleUser) {
+                            const mapped: User = {
+                                id: singleUser.id,
+                                name: singleUser.name || singleUser.email,
+                                email: singleUser.email,
+                                role: singleUser.role as UserRole,
+                                department: singleUser.department || "",
+                                managerId: singleUser.manager_id,
+                                avatarUrl: singleUser.avatar_url,
+                                employeeCode: singleUser.employee_code || undefined,
+                                workLocation: singleUser.work_location || undefined,
+                                jobTitle: singleUser.job_title || undefined,
+                                phone: singleUser.phone || undefined
+                            };
+                            setCurrentUser(mapped);
+                        }
+                    }
+                }
             } else {
-                setCurrentUser(settings.users[0]);
+                setCurrentUser(null);
             }
-        }
-    }, [isLoaded, settings.users, currentUser]);
+        });
 
-    const login = (userId: string) => {
-        const user = settings.users.find(u => u.id === userId);
-        if (user) {
-            setCurrentUser(user);
-            localStorage.setItem("leaveApp_v4_user_id_ref", userId);
+        return () => {
+            authListener.subscription.unsubscribe();
         }
+    }, [settings.users]); // Dependency on users list
+
+    // Initial load check for session? refreshData handles data, but we need auth check too
+    // refreshData loads ALL users. Better optimization later: Load only current user if not Admin?
+    // For now, keep loading all users as permissions logic relies on it temporarily.
+
+    const login = (path?: string) => {
+        window.location.href = "/login";
     };
+
+    const logout = async () => {
+        await supabase.auth.signOut();
+        setCurrentUser(null);
+        window.location.href = "/login";
+    }
 
     const setWorkSchedule = (schedule: WorkScheduleType) => {
         // Still local for now (Global config not in DB yet)
@@ -562,7 +600,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const notificationCount = currentUser ? settings.notifications.filter(n => n.recipientId === currentUser.id && !n.isRead).length : 0;
 
     return (
-        <AppContext.Provider value={{ settings, currentUser, notificationCount, markNotificationRead, login, setWorkSchedule, addHoliday, removeHoliday, setHolidays, addLeaveRequest, updateLeaveRequestStatus, cancelLeaveRequest, setUsers, addUser, updateUser, removeUser, addBulkUsers, refreshData }}>
+        <AppContext.Provider value={{ settings, currentUser, notificationCount, markNotificationRead, login, logout, setWorkSchedule, addHoliday, removeHoliday, setHolidays, addLeaveRequest, updateLeaveRequestStatus, cancelLeaveRequest, setUsers, addUser, updateUser, removeUser, addBulkUsers, refreshData }}>
             {children}
         </AppContext.Provider>
     );
