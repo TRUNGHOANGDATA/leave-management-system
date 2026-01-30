@@ -411,8 +411,7 @@ export default function EmployeeManagementPage() {
                 role: u.role,
                 department: u.department,
                 employeeCode: u.employeeCode,
-
-                jobTitle: u.role === 'manager' ? 'Quản lý' : u.role === 'director' ? 'Giám đốc' : 'Nhân viên',
+                jobTitle: u.jobTitle || (u.role === 'director' ? 'Giám đốc' : u.role === 'manager' ? 'Quản lý' : 'Nhân viên'),
                 workLocation: u.workLocation || "Văn phòng",
                 managerId: u.managerId || "",
                 // Try to find Name by ID, fallback to ID
@@ -488,9 +487,10 @@ export default function EmployeeManagementPage() {
                     const name = String(row[1]).trim();
                     const email = String(row[2]).trim().toLowerCase();
                     const dept = String(row[3] || "").trim();
-                    const location = String(row[4] || "").trim(); // New: Location at index 4
-                    const roleStr = String(row[5] || "").trim().toLowerCase(); // Role is now at index 5
-                    const managerEmail = String(row[6] || "").trim().toLowerCase(); // ManagerEmail is now at index 6
+                    const location = String(row[4] || "").trim();
+                    const jobTitleStr = String(row[5] || "").trim(); // Job Title at index 5
+                    const roleStr = String(row[6] || "").trim().toLowerCase(); // Role is now at index 6
+                    const managerEmail = String(row[7] || "").trim().toLowerCase(); // ManagerEmail at index 7
                     // const code = row[6] ? String(row[6]).trim() : undefined; // Removed employeeCode from import
 
                     // 1. Check Duplicate (Email matches existing user)
@@ -527,10 +527,10 @@ export default function EmployeeManagementPage() {
                         name: toTitleCase(name),
                         email: email,
                         department: dept,
-                        workLocation: location, // Include workLocation
+                        workLocation: location,
+                        jobTitle: jobTitleStr, // Include Job Title
                         role: role,
                         managerId: managerId,
-                        // employeeCode: code // Removed employeeCode from import
                     } as any); // Cast as any because ID is missing but addUser might expect it. 
                     // Actually interface User has id: string. We can generate a temp one.
 
@@ -556,14 +556,15 @@ export default function EmployeeManagementPage() {
     const triggerUpload = () => fileInputRef.current?.click();
 
     const downloadTemplate = () => {
-        const headers = ["STT", "Họ và tên", "Email", "Phòng ban", "Khoa/Vị trí", "Chức vụ (Role)", "Email Quản lý (Tuỳ chọn)"];
+        const headers = ["STT", "Họ và tên", "Email", "Phòng ban", "Khoa/Vị trí", "Chức danh", "Chức vụ (Role)", "Email Quản lý"];
         const ws = XLSX.utils.aoa_to_sheet([headers]);
-        ws['!cols'] = [{ wch: 5 }, { wch: 25 }, { wch: 30 }, { wch: 20 }, { wch: 20 }, { wch: 15 }, { wch: 30 }];
+        ws['!cols'] = [{ wch: 5 }, { wch: 25 }, { wch: 30 }, { wch: 20 }, { wch: 15 }, { wch: 40 }, { wch: 15 }, { wch: 30 }];
 
         // Add sample data
         XLSX.utils.sheet_add_aoa(ws, [
-            ["1", "Nguyễn Văn A", "a@company.com", "Phòng Kinh Doanh", "Sài Gòn", "Nhân viên", "manager@company.com"],
-            ["2", "Trần Thị B", "manager@company.com", "Phòng Kinh Doanh", "Hà Nội", "Quản lý", "director@company.com"]
+            ["1", "Nguyễn Văn A", "a@company.com", "Phòng Kinh Doanh", "Sài Gòn", "Nhân viên kinh doanh", "Nhân viên", "manager@company.com"],
+            ["2", "Trần Thị B", "manager@company.com", "Phòng Kinh Doanh", "Hà Nội", "Trưởng phòng Kinh doanh", "Quản lý", "director@company.com"],
+            ["3", "Lê Văn C", "director@company.com", "Ban Giám Đốc", "Văn phòng chính", "Tổng Giám Đốc kiêm Chủ Tịch HĐQT", "Giám đốc", ""]
         ], { origin: "A2" });
 
         const wb = XLSX.utils.book_new();
@@ -669,10 +670,11 @@ export default function EmployeeManagementPage() {
                                     <TableRow className="hover:bg-slate-50">
                                         <TableHead className="w-[50px] font-bold text-slate-700">STT</TableHead>
                                         <TableHead className="min-w-[100px] font-bold text-slate-700">Mã NV</TableHead>
-                                        <TableHead className="min-w-[180px] font-bold text-slate-700">Họ và tên</TableHead>
-                                        <TableHead className="min-w-[150px] font-bold text-slate-700">Phòng ban</TableHead>
+                                        <TableHead className="min-w-[150px] font-bold text-slate-700">Họ và tên</TableHead>
+                                        <TableHead className="min-w-[120px] font-bold text-slate-700">Phòng ban</TableHead>
                                         <TableHead className="min-w-[100px] font-bold text-slate-700">Khoa/Vị trí</TableHead>
-                                        <TableHead className="min-w-[100px] font-bold text-slate-700">Role</TableHead>
+                                        <TableHead className="min-w-[200px] font-bold text-slate-700">Chức danh</TableHead>
+                                        <TableHead className="min-w-[80px] font-bold text-slate-700">Role</TableHead>
                                         <TableHead className="min-w-[180px] font-bold text-slate-700">Email</TableHead>
                                         <TableHead className="text-right sticky right-0 bg-slate-50 z-30 w-[100px] font-bold text-slate-700">Thao tác</TableHead>
                                     </TableRow>
@@ -684,12 +686,14 @@ export default function EmployeeManagementPage() {
                                             <TableCell className="text-slate-700 text-sm font-medium">{emp.employeeCode || "---"}</TableCell>
                                             <TableCell className="font-medium text-sm text-slate-900">
                                                 <div>{emp.fullName}</div>
-                                                <div className="text-[10px] text-slate-400">{emp.jobTitle}</div>
                                             </TableCell>
                                             <TableCell>
                                                 <span className="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-800">{emp.department}</span>
                                             </TableCell>
                                             <TableCell className="text-sm text-slate-600">{emp.workLocation}</TableCell>
+                                            <TableCell className="text-sm text-slate-600 max-w-[250px] whitespace-normal break-words">
+                                                {emp.jobTitle || "---"}
+                                            </TableCell>
                                             <TableCell className="text-sm">
                                                 <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${emp.role === 'admin' ? 'bg-red-100 text-red-800' :
                                                     emp.role === 'director' ? 'bg-orange-100 text-orange-800' :

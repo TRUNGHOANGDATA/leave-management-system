@@ -12,9 +12,18 @@ CREATE TABLE IF NOT EXISTS users (
     avatar_url TEXT,
     employee_code TEXT UNIQUE,
     work_location TEXT,
+    job_title TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
+
+-- Ensure job_title exists (for existing tables)
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='users' AND column_name='job_title') THEN
+        ALTER TABLE users ADD COLUMN job_title TEXT;
+    END IF;
+END $$;
 
 -- 3. Create Leave Requests Table
 CREATE TABLE IF NOT EXISTS leave_requests (
@@ -47,8 +56,8 @@ CREATE TABLE IF NOT EXISTS notifications (
 );
 
 -- 5. Insert Default Admin User (Important for first login)
-INSERT INTO users (name, email, role, department, employee_code, work_location)
-VALUES ('Quản trị mẫu', 'admin@company.com', 'admin', 'Ban Giám Đốc', 'NV_0001', 'Văn phòng chính')
+INSERT INTO users (name, email, role, department, employee_code, work_location, job_title)
+VALUES ('Quản trị mẫu', 'admin@company.com', 'admin', 'Ban Giám Đốc', 'NV_0001', 'Văn phòng chính', 'Quản trị viên')
 ON CONFLICT (email) DO NOTHING;
 
 -- 6. Enable Row Level Security (Recommended but optional - Set generic policy)
