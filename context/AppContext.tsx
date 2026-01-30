@@ -146,30 +146,23 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         }
     };
 
-    // Fetch data from Supabase
+    // Fetch data from Supabase - PARALLELIZED for faster loading
     const refreshData = async () => {
         try {
-            // Fetch Users
-            const { data: usersData, error: usersError } = await supabase
-                .from('users')
-                .select('*');
+            // Fetch all data in PARALLEL
+            const [usersResult, requestsResult, notifResult] = await Promise.all([
+                supabase.from('users').select('*'),
+                supabase.from('leave_requests').select('*'),
+                supabase.from('notifications').select('*').order('created_at', { ascending: false }).limit(50)
+            ]);
 
-            if (usersError) throw usersError;
+            if (usersResult.error) throw usersResult.error;
+            if (requestsResult.error) throw requestsResult.error;
+            if (notifResult.error) throw notifResult.error;
 
-            // Fetch Requests
-            const { data: requestsData, error: requestsError } = await supabase
-                .from('leave_requests')
-                .select('*');
-
-            if (requestsError) throw requestsError;
-
-            // Fetch Notifications
-            const { data: notifData, error: notifError } = await supabase
-                .from('notifications')
-                .select('*')
-                .order('created_at', { ascending: false });
-
-            if (notifError) throw notifError;
+            const usersData = usersResult.data;
+            const requestsData = requestsResult.data;
+            const notifData = notifResult.data;
 
             // Map Users
             const mappedUsers: User[] = (usersData || []).map(u => ({
@@ -278,30 +271,36 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
     useEffect(() => {
         let mounted = true;
+        let profileFetched = false; // Prevent duplicate fetches
 
         const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
-            console.log("Auth Event:", event, session?.user?.email);
+            console.log("Auth Event:", event);
 
-            if (session?.user) {
-                // 1. Fetch profile immediately
+            if (session?.user && !profileFetched) {
+                profileFetched = true;
                 if (mounted) await fetchUserProfile(session.user.id);
-            } else {
+            } else if (!session) {
                 if (mounted) setCurrentUser(null);
             }
         });
 
-        // Also check initial session
-        supabase.auth.getSession().then(({ data: { session } }) => {
-            if (session?.user && mounted) {
-                fetchUserProfile(session.user.id);
+        // Check initial session only if onAuthStateChange hasn't fired yet
+        // This handles page refresh scenarios
+        setTimeout(async () => {
+            if (!profileFetched && mounted) {
+                const { data: { session } } = await supabase.auth.getSession();
+                if (session?.user && !profileFetched && mounted) {
+                    profileFetched = true;
+                    await fetchUserProfile(session.user.id);
+                }
             }
-        });
+        }, 100); // Small delay to let onAuthStateChange fire first
 
         return () => {
             mounted = false;
             authListener.subscription.unsubscribe();
         }
-    }, []); // No dependencies on settings.users! Independent.
+    }, []);
 
     // Initial load check for session? refreshData handles data, but we need auth check too
     // refreshData loads ALL users. Better optimization later: Load only current user if not Admin?
