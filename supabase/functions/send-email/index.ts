@@ -60,10 +60,25 @@ serve(async (req) => {
       .eq("slug", type)
       .single();
 
+    // Normalize status for 'request_decision' emails
+    let enrichedData = { ...data };
+    if (type === "request_decision") {
+      const rawStatus = (data.status || "").toLowerCase();
+      const isApproved = rawStatus === "approved" || rawStatus === "đã duyệt" || rawStatus === "duyệt";
+      enrichedData = {
+        ...data,
+        status: isApproved ? "ĐÃ DUYỆT (APPROVED)" : "TỪ CHỐI (REJECTED)",
+        statusText: isApproved ? "ĐƯỢC DUYỆT" : "BỊ TỪ CHỐI",
+        statusBadge: isApproved ? "ĐÃ DUYỆT" : "TỪ CHỐI",
+        statusStyle: isApproved ? "color: #16a34a; font-weight: bold;" : "color: #dc2626; font-weight: bold;",
+      };
+      console.log("[Email] Status normalized:", { rawStatus, isApproved, displayStatus: enrichedData.status });
+    }
+
     if (templateData && !error) {
       console.log(`Using DB template for: ${type}`);
-      subject = replaceVariables(templateData.subject, data);
-      bodyContent = replaceVariables(templateData.body_html, data);
+      subject = replaceVariables(templateData.subject, enrichedData);
+      bodyContent = replaceVariables(templateData.body_html, enrichedData);
     } else {
       console.warn(`Template not found for ${type}, utilizing fallback. Error:`, error);
       // FALLBACK (Hardcoded) if DB fetch fails or no template exists
