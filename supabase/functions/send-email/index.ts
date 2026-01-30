@@ -78,7 +78,7 @@ serve(async (req) => {
                     <li>Thời gian: ${data.fromDate} - ${data.toDate}</li>
                     <li>Lý do: ${data.reason}</li>
                   </ul>
-                  <a href="${data.approvalLink}" style="display:inline-block;padding:10px 20px;background:#0070f3;color:white;text-decoration:none;border-radius:5px;">Duyệt đơn ngay</a>
+                  <a href="${data.approveUrl}" style="display:inline-block;padding:10px 20px;background:#0070f3;color:white;text-decoration:none;border-radius:5px;">Duyệt đơn ngay</a>
                 `;
       } else if (type === "request_decision") {
         const isApproved = data.status === "approved" || data.status === "Đã duyệt";

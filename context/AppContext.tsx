@@ -447,21 +447,39 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     };
 
     const updateLeaveRequestStatus = async (requestId: string, status: "approved" | "rejected" | "cancelled", approverName?: string) => {
-        // No optimistic update - wait for DB confirmation to avoid cancelled requests reappearing
+        console.log('[Status Update] Starting update:', { requestId, status, approverName });
+
+        // Optimistic update for immediate UI feedback
+        const previousRequests = settings.leaveRequests;
+        setSettings(prev => ({
+            ...prev,
+            leaveRequests: prev.leaveRequests.map(req =>
+                req.id === requestId
+                    ? { ...req, status, approvedBy: approverName || req.approvedBy }
+                    : req
+            )
+        }));
+
         try {
-            const { error } = await supabase
+            const { error, data } = await supabase
                 .from('leave_requests')
                 .update({
                     status: status,
                     approved_by_name: approverName || null,
                     approved_at: new Date().toISOString(),
                 })
-                .eq('id', requestId);
+                .eq('id', requestId)
+                .select();
+
+            console.log('[Status Update] DB Response:', { error, data });
 
             if (error) {
                 console.error("Failed to update status:", error);
+                // Rollback on error
+                setSettings(prev => ({ ...prev, leaveRequests: previousRequests }));
+                alert("Lỗi cập nhật trạng thái đơn. Vui lòng thử lại.");
             } else {
-                refreshData();
+                await refreshData();
 
                 // --- Send Email Notification to Requester ---
                 if (status === 'approved' || status === 'rejected' || status === 'cancelled') {
