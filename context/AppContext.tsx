@@ -417,13 +417,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
                     // Use dashboard link where manager can see and approve requests
                     const approveUrl = `${typeof window !== 'undefined' ? window.location.origin : 'https://leave-management-system-self-mu.vercel.app'}/dashboard`;
 
-                    // 1. Insert In-App Notification (don't await)
+                    // 1. Insert In-App Notification (with error logging)
                     supabase.from('notifications').insert({
                         recipient_id: manager.id,
                         actor_name: requester?.name || "Nhân viên",
                         message: `đã gửi đơn xin nghỉ: ${request.type}`,
                         action_url: `/dashboard`, // Manager dashboard
                         is_read: false
+                    }).then(({ error }) => {
+                        if (error) {
+                            console.error('[Notification Insert Error]', error);
+                        } else {
+                            console.log('[Notification] Successfully sent to:', manager.name);
+                        }
                     });
 
                     // 2. Send Email (fire-and-forget, don't block UI)
