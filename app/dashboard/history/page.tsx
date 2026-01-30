@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -41,7 +41,7 @@ const CATEGORIES = [
     { id: "allowance", label: "Chế độ (Cưới/Tang)" }
 ];
 
-export default function HistoryPage() {
+function HistoryContent() {
     const { settings, cancelLeaveRequest } = useApp();
     const searchParams = useSearchParams();
     const filterStatus = searchParams.get("filter");
@@ -202,5 +202,13 @@ export default function HistoryPage() {
                 </Table>
             </Card>
         </div>
+    );
+}
+
+export default function HistoryPage() {
+    return (
+        <Suspense fallback={<div>Đang tải lịch sử...</div>}>
+            <HistoryContent />
+        </Suspense>
     );
 }
