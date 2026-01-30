@@ -24,6 +24,7 @@ export interface User {
     workLocation?: string;
     jobTitle?: string;
     phone?: string;
+    annualLeaveRemaining?: number; // Real-time value from DB
 }
 
 export interface LeaveRequest {
