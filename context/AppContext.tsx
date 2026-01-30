@@ -412,20 +412,20 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
                 console.log('[Email Debug] Requester:', requester?.name, 'Manager:', manager?.name, 'Manager Email:', manager?.email);
 
                 if (manager?.email) {
-                    // Use dashboard link instead of specific request ID (which is empty before DB insert)
-                    const approveUrl = `${typeof window !== 'undefined' ? window.location.origin : 'https://leave-management-system-self-mu.vercel.app'}/dashboard/request`;
+                    // Use dashboard link where manager can see and approve requests
+                    const approveUrl = `${typeof window !== 'undefined' ? window.location.origin : 'https://leave-management-system-self-mu.vercel.app'}/dashboard`;
 
-                    // 1. Insert In-App Notification
-                    await supabase.from('notifications').insert({
+                    // 1. Insert In-App Notification (don't await)
+                    supabase.from('notifications').insert({
                         recipient_id: manager.id,
                         actor_name: requester?.name || "Nhân viên",
                         message: `đã gửi đơn xin nghỉ: ${request.type}`,
-                        action_url: `/dashboard/request`, // Manager dashboard
+                        action_url: `/dashboard`, // Manager dashboard
                         is_read: false
                     });
 
-                    // 2. Send Email
-                    await callEdgeFunction({
+                    // 2. Send Email (fire-and-forget, don't block UI)
+                    callEdgeFunction({
                         type: 'new_request',
                         to: manager.email,
                         data: {
@@ -436,10 +436,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
                             reason: request.reason || 'Không có',
                             approveUrl: approveUrl,
                         }
-                    });
+                    }).catch(err => console.error('[Email Error]', err));
                 }
-
-                refreshData(); // Refresh to show notification logic
             }
         } catch (e) {
             console.error("DB Insert Error", e);
