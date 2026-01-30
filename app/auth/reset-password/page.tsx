@@ -19,12 +19,12 @@ export default function ResetPasswordPage() {
 
     // Listen for password recovery event
     useEffect(() => {
-        supabase.auth.onAuthStateChange(async (event, session) => {
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
             if (event === "PASSWORD_RECOVERY") {
-                // User clicked the reset link, they are now in a special session
                 console.log("Password recovery mode active");
             }
         });
+        return () => subscription.unsubscribe();
     }, []);
 
     const handleUpdatePassword = async (e: React.FormEvent) => {
@@ -42,30 +42,22 @@ export default function ResetPasswordPage() {
 
         setIsLoading(true);
         try {
-            // Check session
-            let { data: { session } } = await supabase.auth.getSession();
-
-            // Fallback: If no session but hash exists (URL from email), try to set session manually
-            if (!session && window.location.hash && window.location.hash.includes("access_token")) {
-                console.log("Attempting to parse session from URL hash...");
-                const { data: { session: urlSession }, error: urlError } = await supabase.auth.getSession();
-                if (urlSession) session = urlSession;
-            }
-
-            if (!session) {
-                throw new Error("Không tìm thấy phiên đăng nhập. Hãy thử tải lại trang hoặc yêu cầu link mới.");
-            }
-
+            // Simplified: Trust supabase client to handle session from URL hash automatically
+            // If session is missing, updateUser will throw error, which we catch.
             const { error } = await supabase.auth.updateUser({ password });
+
             if (error) throw error;
 
             toast({ title: "Đổi mật khẩu thành công! ✅", description: "Đang chuyển về trang đăng nhập..." });
 
+            // Allow a moment for the toast to show
+            await new Promise(resolve => setTimeout(resolve, 1000));
+
             await supabase.auth.signOut();
-            setTimeout(() => router.push("/login"), 2000);
+            router.push("/login");
         } catch (err: any) {
             console.error("Reset Password Error:", err);
-            toast({ variant: "destructive", title: "Lỗi", description: err.message || "Đã có lỗi xảy ra." });
+            toast({ variant: "destructive", title: "Lỗi", description: err.message || "Không thể cập nhật mật khẩu. Hãy thử yêu cầu link mới." });
         } finally {
             setIsLoading(false);
         }
