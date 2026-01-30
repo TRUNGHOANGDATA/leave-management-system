@@ -21,6 +21,7 @@ export interface User {
     managerId?: string; // ID of the manager who approves requests
     avatarUrl?: string;
     employeeCode?: string; // Custom Code: NV_0001
+    workLocation?: string;
 }
 
 export interface LeaveRequest {
@@ -173,7 +174,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
                 department: u.department || "",
                 managerId: u.manager_id,
                 avatarUrl: u.avatar_url,
-                employeeCode: u.employee_code || undefined
+                employeeCode: u.employee_code || undefined,
+                workLocation: u.work_location || undefined
             }));
 
             // Map Requests
@@ -310,7 +312,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
                 department: user.department,
                 manager_id: user.managerId,
                 avatar_url: user.avatarUrl,
-                employee_code: newCode
+                employee_code: newCode,
+                work_location: user.workLocation
             });
             if (error) console.error("Add User Error", error);
             else refreshData();
@@ -330,6 +333,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
                 department: user.department,
                 manager_id: user.managerId,
                 avatar_url: user.avatarUrl,
+                work_location: user.workLocation
                 // employee_code: user.employeeCode // Usually don't update code, but can if needed
             }).eq('id', user.id);
             if (error) console.error("Update User Error", error);

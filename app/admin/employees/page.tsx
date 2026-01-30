@@ -411,8 +411,9 @@ export default function EmployeeManagementPage() {
                 role: u.role,
                 department: u.department,
                 employeeCode: u.employeeCode,
+
                 jobTitle: u.role === 'manager' ? 'Quản lý' : u.role === 'director' ? 'Giám đốc' : 'Nhân viên',
-                workLocation: "Văn phòng", // Default
+                workLocation: u.workLocation || "Văn phòng",
                 managerId: u.managerId || "",
                 // Try to find Name by ID, fallback to ID
                 managerName: settings.users.find(m => m.id === u.managerId)?.name || u.managerId || ""
@@ -429,6 +430,8 @@ export default function EmployeeManagementPage() {
             email: e.email,
             role: e.role,
             department: e.department,
+
+            workLocation: e.workLocation,
             managerId: e.managerId,
             employeeCode: e.employeeCode,
             avatarUrl: `/avatars/${String(Math.floor(Math.random() * 5) + 1).padStart(2, '0')}.png` // Random avatar
@@ -476,7 +479,7 @@ export default function EmployeeManagementPage() {
                 let successCount = 0;
                 let skipCount = 0;
 
-                // Headers: STT(0), Name(1), Email(2), Dept(3), Role(4), ManagerEmail(5), Code(6)
+                // Headers: STT(0), Name(1), Email(2), Dept(3), Location(4), Role(5), ManagerEmail(6)
                 // Start from row 1 (skip header)
                 for (let i = 1; i < data.length; i++) {
                     const row: any = data[i];
@@ -485,9 +488,10 @@ export default function EmployeeManagementPage() {
                     const name = String(row[1]).trim();
                     const email = String(row[2]).trim().toLowerCase();
                     const dept = String(row[3] || "").trim();
-                    const roleStr = String(row[4] || "").trim().toLowerCase();
-                    const managerEmail = String(row[5] || "").trim().toLowerCase();
-                    const code = row[6] ? String(row[6]).trim() : undefined;
+                    const location = String(row[4] || "").trim(); // New: Location at index 4
+                    const roleStr = String(row[5] || "").trim().toLowerCase(); // Role is now at index 5
+                    const managerEmail = String(row[6] || "").trim().toLowerCase(); // ManagerEmail is now at index 6
+                    // const code = row[6] ? String(row[6]).trim() : undefined; // Removed employeeCode from import
 
                     // 1. Check Duplicate (Email matches existing user)
                     // Rule: "if duplicate name AND email" -> skip. 
@@ -522,9 +526,10 @@ export default function EmployeeManagementPage() {
                         name: toTitleCase(name),
                         email: email,
                         department: dept,
+                        workLocation: location, // Include workLocation
                         role: role,
                         managerId: managerId,
-                        employeeCode: code
+                        // employeeCode: code // Removed employeeCode from import
                     } as any); // Cast as any because ID is missing but addUser might expect it. 
                     // Actually interface User has id: string. We can generate a temp one.
 
@@ -550,14 +555,14 @@ export default function EmployeeManagementPage() {
     const triggerUpload = () => fileInputRef.current?.click();
 
     const downloadTemplate = () => {
-        const headers = ["STT", "Họ và tên", "Email", "Phòng ban", "Chức vụ (Role)", "Email Quản lý (Tuỳ chọn)", "Mã NV (Tuỳ chọn)"];
+        const headers = ["STT", "Họ và tên", "Email", "Phòng ban", "Khoa/Vị trí", "Chức vụ (Role)", "Email Quản lý (Tuỳ chọn)"];
         const ws = XLSX.utils.aoa_to_sheet([headers]);
-        ws['!cols'] = [{ wch: 5 }, { wch: 25 }, { wch: 30 }, { wch: 20 }, { wch: 15 }, { wch: 30 }, { wch: 15 }];
+        ws['!cols'] = [{ wch: 5 }, { wch: 25 }, { wch: 30 }, { wch: 20 }, { wch: 20 }, { wch: 15 }, { wch: 30 }];
 
         // Add sample data
         XLSX.utils.sheet_add_aoa(ws, [
-            ["1", "Nguyễn Văn A", "a@company.com", "Phòng Kinh Doanh", "Nhân viên", "manager@company.com", ""],
-            ["2", "Trần Thị B", "manager@company.com", "Phòng Kinh Doanh", "Quản lý", "director@company.com", "NV_0099"]
+            ["1", "Nguyễn Văn A", "a@company.com", "Phòng Kinh Doanh", "Sài Gòn", "Nhân viên", "manager@company.com"],
+            ["2", "Trần Thị B", "manager@company.com", "Phòng Kinh Doanh", "Hà Nội", "Quản lý", "director@company.com"]
         ], { origin: "A2" });
 
         const wb = XLSX.utils.book_new();
