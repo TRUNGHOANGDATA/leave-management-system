@@ -113,6 +113,7 @@ serve(async (req) => {
       <html lang="vi">
       <head>
         <meta charset="UTF-8">
+        <link href="https://fonts.googleapis.com/css2?family=Roboto+Condensed:wght@700&display=swap" rel="stylesheet">
         <style>
           body { font-family: 'Roboto', 'Segoe UI', Arial, sans-serif; line-height: 1.6; color: #333; }
           .container { max-width: 600px; margin: 0 auto; padding: 20px; }
