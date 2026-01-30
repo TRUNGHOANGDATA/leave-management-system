@@ -660,10 +660,14 @@ export default function EmployeeManagementPage() {
                     <Button variant="outline" onClick={downloadTemplate}>
                         <Download className="mr-2 h-4 w-4" /> Tải mẫu
                     </Button>
-                    <Button onClick={triggerUpload} className="bg-green-600 hover:bg-green-700 text-white">
-                        <FileSpreadsheet className="mr-2 h-4 w-4" /> Nhập Excel
-                    </Button>
-                    <input type="file" ref={fileInputRef} onChange={handleFileUpload} className="hidden" accept=".xlsx, .xls" />
+                    {(currentUser?.role === 'admin' || currentUser?.role === 'director') && (
+                        <>
+                            <Button onClick={triggerUpload} className="bg-green-600 hover:bg-green-700 text-white">
+                                <FileSpreadsheet className="mr-2 h-4 w-4" /> Nhập Excel
+                            </Button>
+                            <input type="file" ref={fileInputRef} onChange={handleFileUpload} className="hidden" accept=".xlsx, .xls" />
+                        </>
+                    )}
                 </div>
             </div>
 
@@ -701,7 +705,9 @@ export default function EmployeeManagementPage() {
                             <Upload className="mx-auto h-12 w-12 text-slate-300 mb-4" />
                             <h3 className="text-lg font-medium text-slate-900">Chưa có dữ liệu</h3>
                             <p className="text-slate-500 mt-1 max-w-sm mx-auto">Upload file Excel để bắt đầu quản lý.</p>
-                            <Button onClick={triggerUpload} variant="link" className="mt-2 text-primary">Upload ngay</Button>
+                            {(currentUser?.role === 'admin' || currentUser?.role === 'director') && (
+                                <Button onClick={triggerUpload} variant="link" className="mt-2 text-primary">Upload ngay</Button>
+                            )}
                         </div>
                     ) : (
                         <div className="max-h-[600px] overflow-y-auto relative border rounded-md shadow-sm bg-white">
@@ -747,12 +753,16 @@ export default function EmployeeManagementPage() {
                                             <TableCell className="text-sm text-slate-600">{emp.email}</TableCell>
                                             <TableCell className="text-right sticky right-0 bg-white z-10 shadow-[-5px_0_10px_-5px_rgba(0,0,0,0.05)]">
                                                 <div className="flex justify-end gap-1">
-                                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-blue-600 hover:text-blue-700 hover:bg-blue-50" onClick={() => setEditingEmployee(emp)}>
-                                                        <Edit className="h-4 w-4" />
-                                                    </Button>
-                                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50" onClick={() => setDeletingEmployeeId(emp.id)}>
-                                                        <Trash2 className="h-4 w-4" />
-                                                    </Button>
+                                                    {(currentUser?.role === 'admin' || currentUser?.role === 'director') && (
+                                                        <Button variant="ghost" size="icon" className="h-8 w-8 text-blue-600 hover:text-blue-700 hover:bg-blue-50" onClick={() => setEditingEmployee(emp)}>
+                                                            <Edit className="h-4 w-4" />
+                                                        </Button>
+                                                    )}
+                                                    {currentUser?.role === 'admin' && (
+                                                        <Button variant="ghost" size="icon" className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50" onClick={() => setDeletingEmployeeId(emp.id)}>
+                                                            <Trash2 className="h-4 w-4" />
+                                                        </Button>
+                                                    )}
                                                 </div>
                                             </TableCell>
                                         </TableRow>

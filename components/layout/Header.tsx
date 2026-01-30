@@ -140,8 +140,10 @@ export default function Header() {
                             <DropdownMenuTrigger asChild>
                                 <Button variant="ghost" className="relative h-9 w-9 rounded-full">
                                     <Avatar className="h-9 w-9 border border-slate-200">
-                                        <AvatarImage src="/avatars/01.png" alt="@trung" />
-                                        <AvatarFallback className="bg-primary/10 text-primary font-bold">NV</AvatarFallback>
+                                        <AvatarImage src={currentUser?.avatarUrl || "/avatars/01.png"} alt={currentUser?.name} />
+                                        <AvatarFallback className="bg-primary/10 text-primary font-bold">
+                                            {currentUser?.name ? currentUser.name.charAt(0) : "NV"}
+                                        </AvatarFallback>
                                     </Avatar>
                                 </Button>
                             </DropdownMenuTrigger>
@@ -155,7 +157,9 @@ export default function Header() {
                                     </div>
                                 </DropdownMenuLabel>
                                 <DropdownMenuSeparator />
-                                <DropdownMenuItem>Hồ sơ cá nhân</DropdownMenuItem>
+                                <DropdownMenuItem asChild>
+                                    <a href="/dashboard/profile" className="w-full cursor-pointer">Hồ sơ cá nhân</a>
+                                </DropdownMenuItem>
                                 {(currentUser?.role === 'admin' || currentUser?.role === 'director') && (
                                     <DropdownMenuItem asChild>
                                         <a href="/dashboard/settings" className="w-full cursor-pointer">Cài đặt</a>

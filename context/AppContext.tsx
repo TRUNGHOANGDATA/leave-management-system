@@ -23,6 +23,7 @@ export interface User {
     employeeCode?: string; // Custom Code: NV_0001
     workLocation?: string;
     jobTitle?: string;
+    phone?: string;
 }
 
 export interface LeaveRequest {
@@ -361,7 +362,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
                 manager_id: user.managerId,
                 avatar_url: user.avatarUrl,
                 work_location: user.workLocation,
-                job_title: user.jobTitle
+                job_title: user.jobTitle,
+                phone: user.phone
                 // employee_code: user.employeeCode // Usually don't update code, but can if needed
             }).eq('id', user.id);
             if (error) console.error("Update User Error", error);
