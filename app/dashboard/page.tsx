@@ -297,9 +297,17 @@ export default function Dashboard() {
                                                     )}
                                                 </div>
                                             </div>
-                                            <div className="flex justify-between">
+                                            <div className="flex justify-between items-start">
                                                 <span className="text-slate-500">Tổng cộng:</span>
-                                                <span className="font-medium text-slate-900">{req.duration} ngày</span>
+                                                <div className="text-right">
+                                                    <span className="font-medium text-slate-900 block">{req.duration} ngày</span>
+                                                    {(req.daysAnnual > 0 || req.daysUnpaid > 0) && (req.daysAnnual !== req.duration) && (
+                                                        <div className="text-xs text-slate-500 mt-0.5">
+                                                            {req.daysAnnual > 0 && <span>({req.daysAnnual} phép năm)</span>}
+                                                            {req.daysUnpaid > 0 && <span className="block text-amber-600">({req.daysUnpaid} không lương)</span>}
+                                                        </div>
+                                                    )}
+                                                </div>
                                             </div>
                                             <div className="pt-2 border-t border-slate-100 mt-2">
                                                 <p className="text-slate-500 italic">"{req.reason}"</p>
