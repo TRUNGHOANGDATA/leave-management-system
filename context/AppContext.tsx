@@ -384,10 +384,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     // --- DB Operations ---
 
     const addLeaveRequest = async (request: LeaveRequest) => {
-        setSettings(prev => ({
-            ...prev,
-            leaveRequests: [...prev.leaveRequests, request]
-        }));
+        // No optimistic update - wait for DB confirmation to avoid race conditions
 
         try {
             const { error } = await supabase.from('leave_requests').insert({
@@ -415,7 +412,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
                 console.log('[Email Debug] Requester:', requester?.name, 'Manager:', manager?.name, 'Manager Email:', manager?.email);
 
                 if (manager?.email) {
-                    const approveUrl = `${typeof window !== 'undefined' ? window.location.origin : ''}/approve/${request.id}`;
+                    // Use dashboard link instead of specific request ID (which is empty before DB insert)
+                    const approveUrl = `${typeof window !== 'undefined' ? window.location.origin : 'https://leave-management-system-self-mu.vercel.app'}/dashboard/request`;
 
                     // 1. Insert In-App Notification
                     await supabase.from('notifications').insert({
@@ -449,15 +447,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     };
 
     const updateLeaveRequestStatus = async (requestId: string, status: "approved" | "rejected" | "cancelled", approverName?: string) => {
-        setSettings(prev => ({
-            ...prev,
-            leaveRequests: prev.leaveRequests.map(req =>
-                req.id === requestId
-                    ? { ...req, status, approvedBy: approverName || req.approvedBy }
-                    : req
-            )
-        }));
-
+        // No optimistic update - wait for DB confirmation to avoid cancelled requests reappearing
         try {
             const { error } = await supabase
                 .from('leave_requests')
