@@ -146,28 +146,36 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         }
     };
 
-    // Fetch data from Supabase - PARALLELIZED for faster loading
+    // Fetch data from Supabase
     const refreshData = async () => {
         try {
-            // Fetch all data in PARALLEL
-            const [usersResult, requestsResult, notifResult] = await Promise.all([
-                supabase.from('users').select('*'),
-                supabase.from('leave_requests').select('*'),
-                supabase.from('notifications').select('*').order('created_at', { ascending: false }).limit(50)
-            ]);
+            // Fetch Users - Sequential to avoid browser abort/race limits
+            const { data: usersData, error: usersError } = await supabase
+                .from('users')
+                .select('*');
 
-            if (usersResult.error) throw usersResult.error;
-            if (requestsResult.error) throw requestsResult.error;
-            if (notifResult.error) throw notifResult.error;
+            if (usersError) throw usersError;
 
-            const usersData = usersResult.data;
-            const requestsData = requestsResult.data;
-            const notifData = notifResult.data;
+            // Fetch Requests
+            const { data: requestsData, error: requestsError } = await supabase
+                .from('leave_requests')
+                .select('*');
+
+            if (requestsError) throw requestsError;
+
+            // Fetch Notifications
+            const { data: notifData, error: notifError } = await supabase
+                .from('notifications')
+                .select('*')
+                .order('created_at', { ascending: false })
+                .limit(50);
+
+            if (notifError) throw notifError;
 
             // Map Users
             const mappedUsers: User[] = (usersData || []).map(u => ({
                 id: u.id,
-                name: u.name || u.email, // Fallback
+                name: u.name || u.email,
                 email: u.email,
                 role: u.role as UserRole,
                 department: u.department || "",
@@ -175,7 +183,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
                 avatarUrl: u.avatar_url,
                 employeeCode: u.employee_code || undefined,
                 workLocation: u.work_location || undefined,
-                jobTitle: u.job_title || undefined
+                jobTitle: u.job_title || undefined,
+                phone: u.phone || undefined
             }));
 
             // Map Requests
@@ -184,7 +193,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
                 type: r.type as any,
                 fromDate: r.from_date,
                 toDate: r.to_date,
-                duration: r.duration || 0, // Use stored duration from DB
+                duration: r.duration || 0,
                 daysAnnual: r.days_annual || 0,
                 daysUnpaid: r.days_unpaid || 0,
                 daysExempt: r.days_exempt || 0,
@@ -277,16 +286,27 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     useEffect(() => {
         let mounted = true;
 
-        // 1. Check session immediately on mount
+        // 1. Check session immediately on mount with SAFEGUARD
         const initAuth = async () => {
             console.log("[initAuth] Starting...");
-            const { data: { session }, error } = await supabase.auth.getSession();
-            console.log("[initAuth] getSession result:", { session: session?.user?.email, error });
+            try {
+                // Race getSession with a 5s timeout to prevent hanging
+                const sessionPromise = supabase.auth.getSession();
+                const timeoutPromise = new Promise<{ data: { session: null }, error: any }>((_, reject) =>
+                    setTimeout(() => reject(new Error("Auth timeout")), 5000)
+                );
 
-            if (session?.user && mounted) {
-                await fetchUserProfile(session.user.id);
-            } else {
-                console.log("[initAuth] No session found");
+                const { data: { session } } = await Promise.race([sessionPromise, timeoutPromise]) as any;
+
+                console.log("[initAuth] getSession result:", session?.user?.email);
+
+                if (session?.user && mounted) {
+                    await fetchUserProfile(session.user.id);
+                } else {
+                    console.log("[initAuth] No session found");
+                }
+            } catch (error) {
+                console.error("[initAuth] Error checking session:", error);
             }
         };
         initAuth();
