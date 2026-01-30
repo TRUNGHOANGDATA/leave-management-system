@@ -478,7 +478,14 @@ export default function EmployeeManagementPage() {
                 let successCount = 0;
                 let skipCount = 0;
 
-                // Headers: STT(0), Name(1), Email(2), Dept(3), Location(4), Role(5), ManagerEmail(6)
+                // Pre-calculate max employee code to avoid duplicates during bulk insert (since state updates are async)
+                const currentCodes = settings.users
+                    .map(u => u.employeeCode)
+                    .filter(c => c && c.startsWith("NV_"))
+                    .map(c => parseInt(c?.split("_")[1] || "0"));
+                let maxCode = currentCodes.length > 0 ? Math.max(...currentCodes) : 0;
+
+                // Headers: STT(0), Name(1), Email(2), Dept(3), Location(4), JobTitle(5), Role(6), ManagerEmail(7)
                 // Start from row 1 (skip header)
                 for (let i = 1; i < data.length; i++) {
                     const row: any = data[i];
@@ -517,7 +524,11 @@ export default function EmployeeManagementPage() {
                         if (mgr) managerId = mgr.id;
                     }
 
-                    // 4. Add User to DB
+                    // 4. Generate Code
+                    maxCode++;
+                    const newCode = `NV_${String(maxCode).padStart(4, "0")}`;
+
+                    // 5. Add User to DB
                     await addUser({
                         id: "", // Let DB handle UUID? No, we need ID for React key immediately? 
                         // addUser in Context generates UUID if insert returns it.
@@ -531,6 +542,7 @@ export default function EmployeeManagementPage() {
                         jobTitle: jobTitleStr, // Include Job Title
                         role: role,
                         managerId: managerId,
+                        employeeCode: newCode
                     } as any); // Cast as any because ID is missing but addUser might expect it. 
                     // Actually interface User has id: string. We can generate a temp one.
 
