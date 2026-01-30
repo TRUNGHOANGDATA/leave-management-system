@@ -519,36 +519,57 @@ export default function EmployeeManagementPage() {
                     else if (lowerRole.includes('admin') || lowerRole.includes('quản trị')) role = 'admin';
                     else if (lowerRole.includes('human') || lowerRole.includes('nhân sự') || lowerRole.includes('hr')) role = 'hr';
 
-                    // 3. Lookup Manager ID from Email
-                    let managerId = undefined;
-                    if (managerEmail) {
-                        const mgr = settings.users.find(u => u.email.toLowerCase() === managerEmail);
-                        if (mgr) managerId = mgr.id;
-                    }
+                    // 3. Store Manager Email temporarily (we'll resolve IDs after bulk insert)
+                    const managerEmailForLookup = managerEmail;
 
                     // 4. Generate Code
                     maxCode++;
                     const newCode = `NV_${String(maxCode).padStart(4, "0")}`;
 
-                    // 5. Add to Batch Array
+                    // 5. Add to Batch Array (without managerId for now, will update in pass 2)
                     newUsers.push({
-                        id: "", // Placeholder, DB/Context will generally ignore or handle
+                        id: "", // Placeholder
                         name: toTitleCase(name),
                         email: email,
                         department: dept,
                         workLocation: location,
                         jobTitle: jobTitleStr,
                         role: role,
-                        managerId: managerId,
-                        employeeCode: newCode
-                    } as User);
+                        managerId: undefined, // Will be resolved after insert
+                        employeeCode: newCode,
+                        _tempManagerEmail: managerEmailForLookup // Temp field
+                    } as any);
 
                     successCount++;
                 }
 
-                // Batch Insert
+                // Pass 1: Batch Insert (without complete manager info)
                 if (newUsers.length > 0) {
                     await addBulkUsers(newUsers);
+
+                    // Pass 2: Update manager IDs after data is refreshed
+                    // Give DB and refresh some time to settle
+                    await new Promise(resolve => setTimeout(resolve, 800));
+
+                    // Now settings.users should include all newly inserted users
+                    for (const newUser of newUsers) {
+                        const managerEmail = (newUser as any)._tempManagerEmail;
+                        if (managerEmail) {
+                            // Find manager by email in the refreshed user list
+                            const manager = settings.users.find(u => u.email.toLowerCase() === managerEmail);
+                            if (manager) {
+                                // Find the newly created user by email to get their actual DB ID
+                                const createdUser = settings.users.find(u => u.email === newUser.email);
+                                if (createdUser) {
+                                    // Update manager ID
+                                    await updateUser({
+                                        id: createdUser.id,
+                                        managerId: manager.id
+                                    });
+                                }
+                            }
+                        }
+                    }
                 }
 
                 toast({

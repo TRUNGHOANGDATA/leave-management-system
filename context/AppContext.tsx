@@ -326,9 +326,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     };
 
     const addBulkUsers = async (users: User[]) => {
-        // Optimistic Update
-        setSettings(prev => ({ ...prev, users: [...prev.users, ...users] }));
-
         try {
             const dbPayload = users.map(user => ({
                 email: user.email,
@@ -344,7 +341,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
             const { error } = await supabase.from('users').insert(dbPayload);
             if (error) console.error("Bulk Add User Error", error);
-            else refreshData();
+            else await refreshData(); // Wait for refresh to complete
         } catch (e) {
             console.error("Bulk Add User Exception", e);
         }
