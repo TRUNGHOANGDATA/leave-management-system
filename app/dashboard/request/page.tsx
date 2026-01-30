@@ -366,7 +366,7 @@ export default function LeaveRequestPage() {
                                                             {groupedColleagues.manager.map((u) => (
                                                                 <CommandItem
                                                                     key={u.id}
-                                                                    value={u.name}
+                                                                    value={`${u.name} ${u.id}`}
                                                                     onSelect={() => {
                                                                         setHandoverPerson(u.id === handoverPerson ? "" : u.id)
                                                                         setOpenCombobox(false)
@@ -392,7 +392,7 @@ export default function LeaveRequestPage() {
                                                             {groupedColleagues.department.map((u) => (
                                                                 <CommandItem
                                                                     key={u.id}
-                                                                    value={u.name}
+                                                                    value={`${u.name} ${u.id}`}
                                                                     onSelect={() => {
                                                                         setHandoverPerson(u.id === handoverPerson ? "" : u.id)
                                                                         setOpenCombobox(false)
@@ -418,7 +418,7 @@ export default function LeaveRequestPage() {
                                                             {groupedColleagues.others.map((u) => (
                                                                 <CommandItem
                                                                     key={u.id}
-                                                                    value={u.name}
+                                                                    value={`${u.name} ${u.id}`}
                                                                     onSelect={() => {
                                                                         setHandoverPerson(u.id === handoverPerson ? "" : u.id)
                                                                         setOpenCombobox(false)
