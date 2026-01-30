@@ -68,7 +68,13 @@ export default function ResetPasswordPage() {
                 throw new Error("Không tìm thấy phiên đăng nhập. Vui lòng tải lại trang hoặc click lại vào link email.");
             }
 
-            const { error } = await supabase.auth.updateUser({ password });
+            // Wrap updateUser with a timeout to prevent infinite hanging
+            const updatePromise = supabase.auth.updateUser({ password });
+            const timeoutPromise = new Promise((_, reject) =>
+                setTimeout(() => reject(new Error("Yêu cầu quá lâu. Vui lòng tải lại trang và thử lại.")), 10000)
+            );
+
+            const { error } = await Promise.race([updatePromise, timeoutPromise]) as any;
 
             if (error) throw error;
 
