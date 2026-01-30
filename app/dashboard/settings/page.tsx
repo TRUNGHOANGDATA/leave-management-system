@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useApp, WorkScheduleType } from "@/context/AppContext";
@@ -11,18 +12,20 @@ import { format } from "date-fns";
 import { vi } from "date-fns/locale";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Plus, Download, Trash2 } from "lucide-react";
+import { Plus, Download, Trash2, Pencil } from "lucide-react";
 import { EmailSettings } from "./EmailSettings";
 
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 
 export default function SettingsPage() {
-    const { settings, currentUser, setWorkSchedule, addHoliday, removeHoliday } = useApp();
+    const { settings, currentUser, setWorkSchedule, addHoliday, removeHoliday, updateHoliday } = useApp();
     const router = useRouter();
     const currentYear = new Date().getFullYear();
     const [newHolidayName, setNewHolidayName] = useState("");
     const [newHolidayDate, setNewHolidayDate] = useState("");
+    const [editingHoliday, setEditingHoliday] = useState<{ originalDate: string, currentName: string, currentDate: string } | null>(null);
+    const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
     const [activeTab, setActiveTab] = useState("general");
 
     // Redirect if not admin or director
@@ -77,7 +80,7 @@ export default function SettingsPage() {
         setNewHolidayDate("");
     };
 
-    const handleDownloadNextYear = () => {
+    const handleDownloadNextYear = async () => {
         const nextYear = currentYear + 1;
         const nextYearHolidays: { date: string, name: string }[] = [];
         FIXED_HOLIDAYS.forEach(h => {
@@ -89,9 +92,27 @@ export default function SettingsPage() {
         lunarDates.forEach(dateStr => {
             nextYearHolidays.push({ date: dateStr, name: "Nghỉ Lễ/Tết (Âm lịch)" });
         });
-        nextYearHolidays.forEach(h => {
-            addHoliday(new Date(h.date), h.name);
+
+        for (const h of nextYearHolidays) {
+            await addHoliday(new Date(h.date), h.name);
+        }
+    };
+
+    const openEditDialog = (holiday: { date: Date, name: string, dateStr?: string }) => {
+        if (!holiday.dateStr) return;
+        setEditingHoliday({
+            originalDate: holiday.dateStr,
+            currentDate: holiday.dateStr,
+            currentName: holiday.name
         });
+        setIsEditDialogOpen(true);
+    };
+
+    const handleSaveEdit = async () => {
+        if (!editingHoliday) return;
+        await updateHoliday(editingHoliday.originalDate, editingHoliday.currentDate, editingHoliday.currentName);
+        setIsEditDialogOpen(false);
+        setEditingHoliday(null);
     };
 
     return (
@@ -206,11 +227,16 @@ export default function SettingsPage() {
                                                     {holiday.name}
                                                     {holiday.isCustom && <span className="ml-2 px-1.5 py-0.5 text-[10px] bg-blue-100 text-blue-700 rounded-full font-bold">Custom</span>}
                                                 </TableCell>
-                                                <TableCell>
+                                                <TableCell className="flex justify-end gap-1">
                                                     {holiday.isCustom && holiday.dateStr && (
-                                                        <Button variant="ghost" size="icon" className="h-8 w-8 text-red-500 hover:text-red-700 hover:bg-red-50" onClick={() => removeHoliday(holiday.dateStr!)}>
-                                                            <Trash2 className="h-4 w-4" />
-                                                        </Button>
+                                                        <>
+                                                            <Button variant="ghost" size="icon" className="h-8 w-8 text-blue-500 hover:text-blue-700 hover:bg-blue-50" onClick={() => openEditDialog(holiday)}>
+                                                                <Pencil className="h-4 w-4" />
+                                                            </Button>
+                                                            <Button variant="ghost" size="icon" className="h-8 w-8 text-red-500 hover:text-red-700 hover:bg-red-50" onClick={() => removeHoliday(holiday.dateStr!)}>
+                                                                <Trash2 className="h-4 w-4" />
+                                                            </Button>
+                                                        </>
                                                     )}
                                                 </TableCell>
                                             </TableRow>
@@ -227,6 +253,46 @@ export default function SettingsPage() {
                     </Card>
                 </div>
             )}
+
+            <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Chỉnh sửa ngày nghỉ lễ</DialogTitle>
+                        <DialogDescription>Cập nhật thông tin ngày nghỉ lễ.</DialogDescription>
+                    </DialogHeader>
+                    {editingHoliday && (
+                        <div className="grid gap-4 py-4">
+                            <div className="grid grid-cols-4 items-center gap-4">
+                                <Label htmlFor="edit-name" className="text-right">
+                                    Tên
+                                </Label>
+                                <Input
+                                    id="edit-name"
+                                    value={editingHoliday.currentName}
+                                    onChange={(e) => setEditingHoliday({ ...editingHoliday, currentName: e.target.value })}
+                                    className="col-span-3"
+                                />
+                            </div>
+                            <div className="grid grid-cols-4 items-center gap-4">
+                                <Label htmlFor="edit-date" className="text-right">
+                                    Ngày
+                                </Label>
+                                <Input
+                                    id="edit-date"
+                                    type="date"
+                                    value={editingHoliday.currentDate}
+                                    onChange={(e) => setEditingHoliday({ ...editingHoliday, currentDate: e.target.value })}
+                                    className="col-span-3"
+                                />
+                            </div>
+                        </div>
+                    )}
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>Hủy</Button>
+                        <Button onClick={handleSaveEdit}>Lưu thay đổi</Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
 
             {/* Tab Content: Email */}
             {activeTab === "email" && (

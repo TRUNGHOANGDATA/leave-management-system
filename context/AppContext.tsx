@@ -6,6 +6,7 @@ import { supabase } from "@/lib/supabaseClient";
 export type WorkScheduleType = "mon-fri" | "mon-sat" | "mon-sat-morning";
 
 export interface CustomHoliday {
+    id?: string;
     date: string; // ISO format YYYY-MM-DD
     name: string;
 }
@@ -84,6 +85,7 @@ interface AppContextType {
     removeUser: (userId: string) => Promise<void>;
     addBulkUsers: (users: User[]) => Promise<void>;
     refreshData: () => Promise<void>;
+    updateHoliday: (currentDate: string, newDate: string, newName: string) => Promise<void>;
 }
 
 const defaultSettings: AppSettings = {
@@ -112,7 +114,8 @@ const AppContext = createContext<AppContextType>({
     updateUser: async () => { },
     removeUser: async () => { },
     addBulkUsers: async () => { },
-    refreshData: async () => { }
+    refreshData: async () => { },
+    updateHoliday: async () => { }
 });
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
@@ -171,6 +174,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
             if (notifError) throw notifError;
 
+            // Fetch Holidays
+            const { data: holidaysData, error: holidaysError } = await supabase
+                .from('public_holidays')
+                .select('*')
+                .order('date', { ascending: true });
+
+            if (holidaysError) console.error("Error fetching holidays:", holidaysError);
+
             // Map Users
             const mappedUsers: User[] = (usersData || []).map(u => ({
                 id: u.id,
@@ -226,6 +237,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
                     actionUrl: n.action_url,
                     isRead: n.is_read,
                     createdAt: n.created_at
+                })),
+                customHolidays: (holidaysData || []).map(h => ({
+                    id: h.id,
+                    date: h.date,
+                    name: h.name
                 }))
             }));
 
@@ -265,9 +281,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         setSettings((prev) => ({ ...prev, workSchedule: schedule }));
     };
 
-    const addHoliday = (date: Date, name: string) => {
-        // Still local for now
+    const addHoliday = async (date: Date, name: string) => {
         const dateStr = date.toISOString().split('T')[0];
+
+        // Optimistic update
         setSettings(prev => {
             if (prev.customHolidays.some(h => h.date === dateStr)) return prev;
             return {
@@ -275,13 +292,64 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
                 customHolidays: [...prev.customHolidays, { date: dateStr, name }]
             };
         });
+
+        try {
+            const { error, data } = await supabase.from('public_holidays').insert({
+                date: dateStr,
+                name: name
+            }).select();
+
+            if (error) {
+                console.error("Error adding holiday:", error);
+                // Rollback or alert could be added here
+            } else if (data) {
+                // Update with real ID
+                setSettings(prev => ({
+                    ...prev,
+                    customHolidays: prev.customHolidays.map(h =>
+                        h.date === dateStr ? { ...h, id: data[0].id } : h
+                    )
+                }));
+            }
+        } catch (e) {
+            console.error("Exception adding holiday:", e);
+        }
     };
 
-    const removeHoliday = (dateStr: string) => {
+    const removeHoliday = async (dateStr: string) => {
         setSettings(prev => ({
             ...prev,
             customHolidays: prev.customHolidays.filter(h => h.date !== dateStr)
         }));
+
+        try {
+            const { error } = await supabase.from('public_holidays').delete().eq('date', dateStr);
+            if (error) console.error("Error removing holiday:", error);
+        } catch (e) {
+            console.error("Exception removing holiday:", e);
+        }
+    };
+
+    const updateHoliday = async (currentDate: string, newDate: string, newName: string) => {
+        setSettings(prev => ({
+            ...prev,
+            customHolidays: prev.customHolidays.map(h =>
+                h.date === currentDate ? { ...h, date: newDate, name: newName } : h
+            )
+        }));
+
+        try {
+            const { error } = await supabase.from('public_holidays')
+                .update({ date: newDate, name: newName })
+                .eq('date', currentDate);
+
+            if (error) {
+                console.error("Error updating holiday:", error);
+                refreshData(); // Revert on error
+            }
+        } catch (e) {
+            console.error("Exception updating holiday:", e);
+        }
     };
 
     const setHolidays = (holidays: CustomHoliday[]) => {
@@ -573,7 +641,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const notificationCount = currentUser ? settings.notifications.filter(n => n.recipientId === currentUser.id && !n.isRead).length : 0;
 
     return (
-        <AppContext.Provider value={{ settings, currentUser, notificationCount, markNotificationRead, login, setWorkSchedule, addHoliday, removeHoliday, setHolidays, addLeaveRequest, updateLeaveRequestStatus, cancelLeaveRequest, setUsers, addUser, updateUser, removeUser, addBulkUsers, refreshData }}>
+        <AppContext.Provider value={{ settings, currentUser, notificationCount, markNotificationRead, login, setWorkSchedule, addHoliday, removeHoliday, setHolidays, addLeaveRequest, updateLeaveRequestStatus, cancelLeaveRequest, setUsers, addUser, updateUser, removeUser, addBulkUsers, refreshData, updateHoliday }}>
             {children}
         </AppContext.Provider>
     );
