@@ -504,10 +504,11 @@ export default function EmployeeManagementPage() {
 
                     // 2. Map Role
                     let role: UserRole = 'employee';
-                    if (roleStr.includes('giám đốc') || roleStr.includes('director')) role = 'director';
-                    else if (roleStr.includes('quản lý') || roleStr.includes('manager')) role = 'manager';
-                    else if (roleStr.includes('admin')) role = 'admin';
-                    else if (roleStr.includes('human') || roleStr.includes('nhân sự')) role = 'hr';
+                    const lowerRole = roleStr.toLowerCase();
+                    if (lowerRole.includes('giám đốc') || lowerRole.includes('director')) role = 'director';
+                    else if (lowerRole.includes('quản lý') || lowerRole.includes('manager') || lowerRole.includes('trưởng') || lowerRole.includes('phó phòng') || lowerRole.includes('leader')) role = 'manager';
+                    else if (lowerRole.includes('admin') || lowerRole.includes('quản trị')) role = 'admin';
+                    else if (lowerRole.includes('human') || lowerRole.includes('nhân sự') || lowerRole.includes('hr')) role = 'hr';
 
                     // 3. Lookup Manager ID from Email
                     let managerId = undefined;
