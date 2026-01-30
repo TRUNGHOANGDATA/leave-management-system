@@ -412,6 +412,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
                 // --- Send Email Notification to Manager ---
                 const requester = settings.users.find(u => u.id === request.userId);
                 const manager = settings.users.find(u => u.id === requester?.managerId);
+                console.log('[Email Debug] Requester:', requester?.name, 'Manager:', manager?.name, 'Manager Email:', manager?.email);
 
                 if (manager?.email) {
                     const approveUrl = `${typeof window !== 'undefined' ? window.location.origin : ''}/approve/${request.id}`;
@@ -476,6 +477,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
                 if (status === 'approved' || status === 'rejected' || status === 'cancelled') {
                     const request = settings.leaveRequests.find(r => r.id === requestId);
                     const requester = settings.users.find(u => u.id === request?.userId);
+                    console.log('[Email Debug] Status Update - Requester:', requester?.name, 'Email:', requester?.email);
 
                     if (requester?.email) {
                         try {
