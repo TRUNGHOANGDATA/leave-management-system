@@ -351,7 +351,7 @@ export default function Dashboard() {
                     <h2 className="text-xl font-bold text-slate-900">Đã duyệt ({approvedSubordinateRequests.length})</h2>
                     <p className="text-sm text-slate-500">Nếu nhân viên muốn huỷ đơn đã duyệt, bạn có thể huỷ ở đây.</p>
                     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                        {approvedSubordinateRequests.slice(0, 3).map(req => {
+                        {approvedSubordinateRequests.map(req => {
                             const requester = settings.users?.find(u => u.id === req.userId);
                             return (
                                 <Card key={req.id} className="border-l-4 border-l-green-400 shadow-sm">
