@@ -239,48 +239,69 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         refreshData().then(() => setIsLoaded(true));
     }, []);
 
-    // --- Authentication ---
+    // --- Authentication & User Profile Sync ---
+
+    // Independent fetch for current user profile to ensure fast load (don't wait for bulk data)
+    const fetchUserProfile = async (userId: string) => {
+        try {
+            const { data: userProfile, error } = await supabase
+                .from('users')
+                .select('*')
+                .eq('id', userId)
+                .single();
+
+            if (error) throw error;
+
+            if (userProfile) {
+                const mapped: User = {
+                    id: userProfile.id,
+                    name: userProfile.name || userProfile.email,
+                    email: userProfile.email,
+                    role: userProfile.role as UserRole,
+                    department: userProfile.department || "",
+                    managerId: userProfile.manager_id,
+                    avatarUrl: userProfile.avatar_url,
+                    employeeCode: userProfile.employee_code || undefined,
+                    workLocation: userProfile.work_location || undefined,
+                    jobTitle: userProfile.job_title || undefined,
+                    phone: userProfile.phone || undefined
+                };
+                setCurrentUser(mapped);
+                return mapped;
+            }
+        } catch (err) {
+            console.error("Error fetching user profile:", err);
+            // Fallback object if record missing but auth exists
+            return null;
+        }
+    };
+
     useEffect(() => {
+        let mounted = true;
+
         const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
+            console.log("Auth Event:", event, session?.user?.email);
+
             if (session?.user) {
-                // Determine user info
-                // Need to ensure users are loaded or fetch specific user
-                // Best pattern: Fetch user profile directly or ensure users list is loaded first
-                if (settings.users.length > 0) {
-                    const profile = settings.users.find(u => u.id === session.user.id);
-                    if (profile) setCurrentUser(profile);
-                    else {
-                        // Fallback: If settings.users not loaded yet or profile missing (sync lag)
-                        // For now, let refreshData handle it or wait for next render
-                        // Or Force fetch
-                        const { data: singleUser } = await supabase.from('users').select('*').eq('id', session.user.id).single();
-                        if (singleUser) {
-                            const mapped: User = {
-                                id: singleUser.id,
-                                name: singleUser.name || singleUser.email,
-                                email: singleUser.email,
-                                role: singleUser.role as UserRole,
-                                department: singleUser.department || "",
-                                managerId: singleUser.manager_id,
-                                avatarUrl: singleUser.avatar_url,
-                                employeeCode: singleUser.employee_code || undefined,
-                                workLocation: singleUser.work_location || undefined,
-                                jobTitle: singleUser.job_title || undefined,
-                                phone: singleUser.phone || undefined
-                            };
-                            setCurrentUser(mapped);
-                        }
-                    }
-                }
+                // 1. Fetch profile immediately
+                if (mounted) await fetchUserProfile(session.user.id);
             } else {
-                setCurrentUser(null);
+                if (mounted) setCurrentUser(null);
+            }
+        });
+
+        // Also check initial session
+        supabase.auth.getSession().then(({ data: { session } }) => {
+            if (session?.user && mounted) {
+                fetchUserProfile(session.user.id);
             }
         });
 
         return () => {
+            mounted = false;
             authListener.subscription.unsubscribe();
         }
-    }, [settings.users]); // Dependency on users list
+    }, []); // No dependencies on settings.users! Independent.
 
     // Initial load check for session? refreshData handles data, but we need auth check too
     // refreshData loads ALL users. Better optimization later: Load only current user if not Admin?
