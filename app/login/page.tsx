@@ -10,12 +10,14 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/components/ui/use-toast";
 import { Loader2 } from "lucide-react";
 
+// Production URL - Change this if your domain changes
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://leave-management-system-self-mu.vercel.app";
+
 export default function LoginPage() {
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [isLoading, setIsLoading] = useState(false);
     const router = useRouter();
-
     const { toast } = useToast();
 
     const handleLogin = async (e: React.FormEvent) => {
@@ -52,13 +54,17 @@ export default function LoginPage() {
     };
 
     const handleSignUp = async () => {
+        if (!email || !password) {
+            toast({ variant: "destructive", title: "Thiếu thông tin", description: "Vui lòng nhập Email và Mật khẩu." });
+            return;
+        }
         setIsLoading(true);
         try {
             const { error } = await supabase.auth.signUp({
                 email,
                 password,
                 options: {
-                    emailRedirectTo: `${location.origin}/auth/callback`,
+                    emailRedirectTo: `${SITE_URL}/auth/callback`,
                 }
             });
             if (error) throw error;
@@ -68,7 +74,29 @@ export default function LoginPage() {
         } finally {
             setIsLoading(false);
         }
-    }
+    };
+
+    const handleResetPassword = async () => {
+        if (!email) {
+            toast({ variant: "destructive", title: "Thiếu Email", description: "Vui lòng nhập Email để lấy lại mật khẩu." });
+            return;
+        }
+        setIsLoading(true);
+        try {
+            const { error } = await supabase.auth.resetPasswordForEmail(email, {
+                redirectTo: `${SITE_URL}/auth/reset-password`,
+            });
+            if (error) throw error;
+            toast({
+                title: "Email đã được gửi! 📧",
+                description: "Kiểm tra hộp thư đến (hoặc spam) để đặt lại mật khẩu."
+            });
+        } catch (err: any) {
+            toast({ variant: "destructive", title: "Lỗi", description: err.message });
+        } finally {
+            setIsLoading(false);
+        }
+    };
 
     return (
         <div className="flex items-center justify-center min-h-screen bg-slate-50 p-4">
@@ -93,6 +121,14 @@ export default function LoginPage() {
                         <div className="space-y-2">
                             <div className="flex items-center justify-between">
                                 <Label htmlFor="password">Mật khẩu</Label>
+                                <button
+                                    type="button"
+                                    onClick={handleResetPassword}
+                                    className="text-xs text-blue-600 hover:underline"
+                                    disabled={isLoading}
+                                >
+                                    Quên mật khẩu?
+                                </button>
                             </div>
                             <Input
                                 id="password"
