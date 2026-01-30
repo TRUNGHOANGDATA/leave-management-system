@@ -42,11 +42,16 @@ const CATEGORIES = [
 ];
 
 function HistoryContent() {
-    const { settings, currentUser, cancelLeaveRequest } = useApp();
+    const { settings, currentUser, cancelLeaveRequest, updateLeaveRequestStatus } = useApp();
     const searchParams = useSearchParams();
     const filterStatus = searchParams.get("filter");
     const viewMode = searchParams.get("view"); // 'personal' | 'manager'
     const [filterCategory, setFilterCategory] = useState("all");
+
+    // Helper to find user name
+    const getUserName = (userId: string) => {
+        return settings.users.find(u => u.id === userId)?.name || "Unknown";
+    };
 
     const sortedHistory = useMemo(() => {
         let data = [...settings.leaveRequests];
@@ -57,10 +62,6 @@ function HistoryContent() {
             if (!currentUser || !['manager', 'director', 'admin'].includes(currentUser.role)) {
                 data = data.filter(item => item.userId === currentUser?.id);
             } else {
-                // Show requests that are NOT mine (or all? usually subordinates)
-                // For now, let's show ALL requests except my own for clarity, or just ALL.
-                // Matching Dashboard logic: "approvedSubordinateRequests"
-                // Let's filter to requests where I am the manager OR I am admin
                 if (currentUser.role === 'admin' || currentUser.role === 'director') {
                     // See all
                 } else {
@@ -74,8 +75,12 @@ function HistoryContent() {
             data = data.filter(item => item.userId === currentUser?.id);
         }
 
+        // Apply Status Filter from URL if present
+        if (filterStatus) {
+            data = data.filter(item => item.status === filterStatus);
+        }
+
         return data
-            .filter(item => filterStatus ? item.status === filterStatus : true)
             .filter(item => {
                 if (filterCategory === "all") return true;
                 if (filterCategory === "unpaid") return item.type === "Nghỉ không lương";
@@ -88,22 +93,30 @@ function HistoryContent() {
             .sort((a, b) => new Date(b.fromDate).getTime() - new Date(a.fromDate).getTime());
     }, [settings.leaveRequests, filterStatus, filterCategory, viewMode, currentUser, settings.users]);
 
+    const isManagerView = viewMode === 'manager';
+
     return (
         <div className="container py-10 space-y-8">
             <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                 <div>
                     <div className="flex items-center gap-2 mb-2">
                         <Link href="/dashboard" className="text-sm text-slate-500 hover:text-slate-900 flex items-center">
-                            <ArrowLeft className="h-4 w-4 mr-1" /> Quay lại
+                            <ArrowLeft className="h-4 w-4 mr-1" /> Quay lại Dashboard
                         </Link>
                     </div>
-                    <h1 className="text-3xl font-bold tracking-tight text-slate-900">Lịch sử nghỉ phép</h1>
-                    <p className="text-slate-500">Xem lại và theo dõi trạng thái các đơn nghỉ phép.</p>
+                    <h1 className="text-3xl font-bold tracking-tight text-slate-900">
+                        {isManagerView ? "Lịch sử duyệt đơn" : "Lịch sử nghỉ phép"}
+                    </h1>
+                    <p className="text-slate-500">
+                        {isManagerView ? "Quản lý và theo dõi trạng thái các đơn nghỉ phép của nhân viên." : "Xem lại và theo dõi trạng thái các đơn nghỉ phép của bạn."}
+                    </p>
                 </div>
 
                 {filterStatus && (
                     <Button variant="ghost" asChild>
-                        <Link href="/dashboard/history">Xóa bộ lọc trạng thái</Link>
+                        <Link href={isManagerView ? "/dashboard/history?view=manager" : "/dashboard/history"}>
+                            Xóa bộ lọc trạng thái
+                        </Link>
                     </Button>
                 )}
             </div>
@@ -132,6 +145,7 @@ function HistoryContent() {
                 <Table>
                     <TableHeader className="bg-slate-50">
                         <TableRow>
+                            {isManagerView && <TableHead className="w-[180px]">Nhân viên</TableHead>}
                             <TableHead className="w-[160px]">Loại nghỉ</TableHead>
                             <TableHead>Thời gian</TableHead>
                             <TableHead className="text-center w-[80px]">Phép</TableHead>
@@ -140,17 +154,22 @@ function HistoryContent() {
                             <TableHead className="max-w-[150px]">Lý do</TableHead>
                             <TableHead>Trạng thái</TableHead>
                             <TableHead>Người duyệt</TableHead>
-                            <TableHead className="text-right w-[80px]">Thao tác</TableHead>
+                            <TableHead className="text-right w-[100px]">Thao tác</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
                         {sortedHistory.length > 0 ? (
                             sortedHistory.map((request) => (
                                 <TableRow key={request.id} className="hover:bg-slate-50/50 transition-colors">
+                                    {isManagerView && (
+                                        <TableCell className="font-medium text-slate-900">
+                                            {getUserName(request.userId)}
+                                        </TableCell>
+                                    )}
                                     <TableCell className="font-medium">
-                                        <div className="flex items-center">
+                                        <div className="flex items-center text-slate-600">
                                             {getTypeIcon(request.type)}
-                                            {request.type}
+                                            <span className="truncate max-w-[140px]" title={request.type}>{request.type}</span>
                                         </div>
                                     </TableCell>
                                     <TableCell>
@@ -167,7 +186,7 @@ function HistoryContent() {
                                     </TableCell>
                                     <TableCell className="text-center">
                                         {request.daysAnnual > 0 ? (
-                                            <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-100 border-blue-200">
+                                            <Badge className="bg-blue-50 text-blue-700 hover:bg-blue-50 border-blue-100 shadow-none font-normal">
                                                 {request.daysAnnual}
                                             </Badge>
                                         ) : (
@@ -176,7 +195,7 @@ function HistoryContent() {
                                     </TableCell>
                                     <TableCell className="text-center">
                                         {request.daysUnpaid > 0 ? (
-                                            <Badge className="bg-orange-100 text-orange-700 hover:bg-orange-100 border-orange-200">
+                                            <Badge className="bg-orange-50 text-orange-700 hover:bg-orange-50 border-orange-100 shadow-none font-normal">
                                                 {request.daysUnpaid}
                                             </Badge>
                                         ) : (
@@ -185,7 +204,7 @@ function HistoryContent() {
                                     </TableCell>
                                     <TableCell className="text-center">
                                         {request.daysExempt > 0 ? (
-                                            <Badge className="bg-green-100 text-green-700 hover:bg-green-100 border-green-200">
+                                            <Badge className="bg-green-50 text-green-700 hover:bg-green-50 border-green-100 shadow-none font-normal">
                                                 {request.daysExempt}
                                             </Badge>
                                         ) : (
@@ -193,25 +212,46 @@ function HistoryContent() {
                                         )}
                                     </TableCell>
                                     <TableCell className="max-w-[150px]">
-                                        <p className="truncate text-slate-600" title={request.reason}>
+                                        <p className="truncate text-slate-500 text-xs" title={request.reason}>
                                             {request.reason || "-"}
                                         </p>
                                     </TableCell>
                                     <TableCell>
                                         {getStatusBadge(request.status)}
                                     </TableCell>
-                                    <TableCell className="text-slate-600">
+                                    <TableCell className="text-slate-500 text-xs">
                                         {request.approvedBy || "-"}
                                     </TableCell>
                                     <TableCell className="text-right">
-                                        {request.status === "pending" && (
+                                        {/* Actions for Personal View */}
+                                        {!isManagerView && request.status === "pending" && (
                                             <Button
                                                 variant="ghost"
                                                 size="sm"
                                                 className="text-red-600 hover:text-red-700 hover:bg-red-50 h-7 px-2 text-xs"
-                                                onClick={() => cancelLeaveRequest(request.id)}
+                                                onClick={() => {
+                                                    if (confirm("Bạn có chắc chắn muốn huỷ đơn này?")) {
+                                                        cancelLeaveRequest(request.id);
+                                                    }
+                                                }}
                                             >
                                                 Huỷ đơn
+                                            </Button>
+                                        )}
+
+                                        {/* Actions for Manager View */}
+                                        {isManagerView && request.status === "approved" && (
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                className="text-red-600 hover:text-red-700 hover:bg-red-50 h-7 px-2 text-xs"
+                                                onClick={() => {
+                                                    if (confirm("Xác nhận HUỶ DUYỆT đơn nghỉ phép này? Nhân viên sẽ nhận được thông báo.")) {
+                                                        updateLeaveRequestStatus(request.id, 'cancelled', currentUser?.name);
+                                                    }
+                                                }}
+                                            >
+                                                Huỷ duyệt
                                             </Button>
                                         )}
                                     </TableCell>
@@ -219,7 +259,7 @@ function HistoryContent() {
                             ))
                         ) : (
                             <TableRow>
-                                <TableCell colSpan={7} className="h-24 text-center text-slate-500">
+                                <TableCell colSpan={isManagerView ? 10 : 9} className="h-24 text-center text-slate-500">
                                     Không có dữ liệu phù hợp
                                 </TableCell>
                             </TableRow>
