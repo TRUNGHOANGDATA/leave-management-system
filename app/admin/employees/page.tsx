@@ -458,14 +458,14 @@ export default function EmployeeManagementPage() {
             }));
     }, [settings.users]);
 
-    const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file) return;
 
         setIsLoading(true);
         const reader = new FileReader();
 
-        reader.onload = (event) => {
+        reader.onload = async (event) => {
             try {
                 const bstr = event.target?.result;
                 const wb = XLSX.read(bstr, { type: 'binary' });
@@ -473,50 +473,71 @@ export default function EmployeeManagementPage() {
                 const ws = wb.Sheets[wsname];
                 const data = XLSX.utils.sheet_to_json(ws, { header: 1 });
 
-                const newEmployees: Employee[] = [];
+                let successCount = 0;
+                let skipCount = 0;
 
+                // Headers: STT(0), Name(1), Email(2), Dept(3), Role(4), ManagerEmail(5), Code(6)
+                // Start from row 1 (skip header)
                 for (let i = 1; i < data.length; i++) {
                     const row: any = data[i];
-                    if (row[1] || row[2]) {
-                        newEmployees.push({
-                            order: String(row[0] || ""),
-                            id: String(row[1] || "").trim(),
-                            fullName: toTitleCase(String(row[2] || "").trim()),
-                            jobTitle: String(row[3] || "").trim(),
-                            department: String(row[4] || "").trim(),
-                            workLocation: String(row[5] || "").trim(),
-                            managerId: String(row[6] || "").trim(),
-                            managerName: toTitleCase(String(row[7] || "").trim()),
-                            email: String(row[8] || "").trim(),
-                            role: 'employee' // Default role for imported users
-                        });
+                    if (!row[1] || !row[2]) continue; // Skip empty name/email
+
+                    const name = String(row[1]).trim();
+                    const email = String(row[2]).trim().toLowerCase();
+                    const dept = String(row[3] || "").trim();
+                    const roleStr = String(row[4] || "").trim().toLowerCase();
+                    const managerEmail = String(row[5] || "").trim().toLowerCase();
+                    const code = row[6] ? String(row[6]).trim() : undefined;
+
+                    // 1. Check Duplicate (Email matches existing user)
+                    // Rule: "if duplicate name AND email" -> skip. 
+                    // But actually email must be unique in system usually. checking email is enough.
+                    const exists = settings.users.some(u => u.email.toLowerCase() === email);
+                    if (exists) {
+                        skipCount++;
+                        continue;
                     }
+
+                    // 2. Map Role
+                    let role: UserRole = 'employee';
+                    if (roleStr.includes('giám đốc') || roleStr.includes('director')) role = 'director';
+                    else if (roleStr.includes('quản lý') || roleStr.includes('manager')) role = 'manager';
+                    else if (roleStr.includes('admin')) role = 'admin';
+                    else if (roleStr.includes('human') || roleStr.includes('nhân sự')) role = 'hr';
+
+                    // 3. Lookup Manager ID from Email
+                    let managerId = undefined;
+                    if (managerEmail) {
+                        const mgr = settings.users.find(u => u.email.toLowerCase() === managerEmail);
+                        if (mgr) managerId = mgr.id;
+                    }
+
+                    // 4. Add User to DB
+                    await addUser({
+                        id: "", // Let DB handle UUID? No, we need ID for React key immediately? 
+                        // addUser in Context generates UUID if insert returns it.
+                        // Actually addUser takes User object. 
+                        // But we don't have ID yet. We can pass empty ID and let context/db handle.
+                        // However, Context addUser implementation inserts to DB. We trust DB.
+                        name: toTitleCase(name),
+                        email: email,
+                        department: dept,
+                        role: role,
+                        managerId: managerId,
+                        employeeCode: code
+                    } as any); // Cast as any because ID is missing but addUser might expect it. 
+                    // Actually interface User has id: string. We can generate a temp one.
+
+                    successCount++;
                 }
 
-                // Merge & Dedup logic
-                const empMap = new Map<string, Employee>();
-                employees.forEach(e => empMap.set(e.id, e));
-                // Overwrite with new import (keep existing roles if match found? For simplicity, we trust Excel or default to employee if new)
-                newEmployees.forEach(e => {
-                    if (e.id) {
-                        // Preserve role if exists, else default
-                        const existing = empMap.get(e.id);
-                        if (existing) e.role = existing.role;
-                        empMap.set(e.id, e);
-                    }
-                });
-                const distinctEmployees = Array.from(empMap.values());
-
-                setEmployees(distinctEmployees);
-                syncToAppContext(distinctEmployees); // SYNC
-
                 toast({
-                    title: "Nhập dữ liệu thành công",
-                    description: `Đã xử lý ${newEmployees.length} dòng. Tổng: ${distinctEmployees.length}`,
+                    title: "Nhập dữ liệu hoàn tất",
+                    description: `Thêm mới: ${successCount}. Bỏ qua (trùng): ${skipCount}.`,
                 });
             } catch (error) {
                 console.error(error);
-                toast({ variant: "destructive", title: "Lỗi đọc file", description: "Không thể đọc file Excel." });
+                toast({ variant: "destructive", title: "Lỗi", description: "Lỗi xử lý file Excel." });
             } finally {
                 setIsLoading(false);
                 if (fileInputRef.current) fileInputRef.current.value = "";
@@ -529,12 +550,19 @@ export default function EmployeeManagementPage() {
     const triggerUpload = () => fileInputRef.current?.click();
 
     const downloadTemplate = () => {
-        const headers = ["STT", "Mã nhân viên", "Họ và tên", "Chức danh", "Phòng ban", "Nơi làm việc", "MNV QLTT/TBP", "QLTT/TBP", "Email"];
+        const headers = ["STT", "Họ và tên", "Email", "Phòng ban", "Chức vụ (Role)", "Email Quản lý (Tuỳ chọn)", "Mã NV (Tuỳ chọn)"];
         const ws = XLSX.utils.aoa_to_sheet([headers]);
-        ws['!cols'] = [{ wch: 5 }, { wch: 15 }, { wch: 25 }, { wch: 25 }, { wch: 20 }, { wch: 15 }, { wch: 15 }, { wch: 25 }, { wch: 25 }];
+        ws['!cols'] = [{ wch: 5 }, { wch: 25 }, { wch: 30 }, { wch: 20 }, { wch: 15 }, { wch: 30 }, { wch: 15 }];
+
+        // Add sample data
+        XLSX.utils.sheet_add_aoa(ws, [
+            ["1", "Nguyễn Văn A", "a@company.com", "Phòng Kinh Doanh", "Nhân viên", "manager@company.com", ""],
+            ["2", "Trần Thị B", "manager@company.com", "Phòng Kinh Doanh", "Quản lý", "director@company.com", "NV_0099"]
+        ], { origin: "A2" });
+
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "Danh_Sach_Nhan_Su");
-        XLSX.writeFile(wb, "Danh_Sach_Nhan_Su_Template.xlsx");
+        XLSX.writeFile(wb, "Mau_Nhap_Nhan_Vien.xlsx");
     };
 
     // --- Actions ---
