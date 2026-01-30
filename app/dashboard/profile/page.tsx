@@ -89,7 +89,9 @@ export default function ProfilePage() {
 
                                         // Upload logic
                                         const { supabase } = await import('@/lib/supabaseClient'); // Dynamic import to avoid top-level issues if any
-                                        const fileName = `${currentUser.id}-${Date.now()}`;
+                                        // Get extension
+                                        const fileExt = file.name.split('.').pop();
+                                        const fileName = `${currentUser.id}-${Date.now()}.${fileExt}`;
 
                                         // Show loading/preview
                                         const previewUrl = URL.createObjectURL(file);
@@ -108,9 +110,13 @@ export default function ProfilePage() {
 
                                             setFormData(prev => ({ ...prev, avatarUrl: publicUrl }));
                                             toast({ title: "Upload thành công", description: "Ảnh đại diện mới đã được tải lên." });
-                                        } catch (err) {
+                                        } catch (err: any) {
                                             console.error(err);
-                                            toast({ variant: "destructive", title: "Lỗi Upload", description: "Không thể tải ảnh. Hãy chắc chắn Bucket 'avatars' Public tồn tại." });
+                                            toast({
+                                                variant: "destructive",
+                                                title: "Lỗi Upload",
+                                                description: err.message || "Không thể tải ảnh. Hãy kiểm tra lại kết nối hoặc quyền truy cập."
+                                            });
                                         }
                                     }}
                                 />
