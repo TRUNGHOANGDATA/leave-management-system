@@ -647,7 +647,7 @@ export default function EmployeeManagementPage() {
                                     {filteredEmployees.map((emp, index) => (
                                         <TableRow key={emp.id}>
                                             <TableCell className="text-slate-500 text-sm">{emp.order}</TableCell>
-                                            <TableCell className="text-slate-700 font-mono text-xs">{emp.employeeCode || "---"}</TableCell>
+                                            <TableCell className="text-slate-700 text-sm font-medium">{emp.employeeCode || "---"}</TableCell>
                                             <TableCell className="font-medium text-sm text-slate-900">
                                                 <div>{emp.fullName}</div>
                                                 <div className="text-[10px] text-slate-400">{emp.jobTitle}</div>
