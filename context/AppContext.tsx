@@ -122,6 +122,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     // --- Email Notification Helper ---
     const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
     const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+    const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://leave-management-system-self-mu.vercel.app";
 
     const callEdgeFunction = async (payload: { type: string; to: string; data: any }) => {
         try {
@@ -414,8 +415,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
                 console.log('[Email Debug] Requester:', requester?.name, 'Manager:', manager?.name, 'Manager Email:', manager?.email);
 
                 if (manager?.email) {
-                    // Use dashboard link where manager can see and approve requests
-                    const approveUrl = `${typeof window !== 'undefined' ? window.location.origin : 'https://leave-management-system-self-mu.vercel.app'}/dashboard`;
+                    // Use configured SITE_URL for reliable production links
+                    const approveUrl = `${SITE_URL}/dashboard`;
 
                     // 1. Insert In-App Notification (with error logging)
                     supabase.from('notifications').insert({
@@ -517,8 +518,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
                                 to: requester.email,
                                 data: {
                                     requesterName: requester.name,
-                                    status: status,
+                                    status: statusMessage, // 'DUYỆT' / 'TỪ CHỐI'
+                                    statusColor: status === 'approved' ? '#16a34a' : '#dc2626', // Green/Red
                                     approverName: approverName || currentUser?.name || 'Quản lý',
+                                    fromDate: request?.fromDate,
+                                    toDate: request?.toDate
                                 }
                             });
                         } catch (err) { console.error("Notif Error", err) }

@@ -11,9 +11,17 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { CalendarIcon, ArrowLeft, Clock, Info, ChevronDown, Check, Users } from "lucide-react";
+import { CalendarIcon, ArrowLeft, Clock, Info, ChevronDown, Check, Users, ChevronsUpDown } from "lucide-react";
 import { format, differenceInCalendarDays, addDays, eachDayOfInterval, isSameDay } from "date-fns";
 import { vi } from "date-fns/locale";
+import {
+    Command,
+    CommandEmpty,
+    CommandGroup,
+    CommandInput,
+    CommandItem,
+    CommandList,
+} from "@/components/ui/command";
 import { cn } from "@/lib/utils";
 import { LEGAL_ALLOWANCES } from "@/lib/constants";
 import Link from 'next/link';
@@ -26,14 +34,22 @@ export default function LeaveRequestPage() {
     const { settings, currentUser, addLeaveRequest } = useApp();
     const router = useRouter();
 
-    // List of colleagues in the same department (excluding self)
-    const departmentColleagues = useMemo(() => {
-        if (!currentUser?.department) return [];
-        return settings.users.filter(u =>
-            u.department === currentUser.department &&
-            u.id !== currentUser.id
-        );
+    // Grouped colleagues logic
+    const groupedColleagues = useMemo(() => {
+        if (!settings.users || !currentUser) return { manager: [], department: [], others: [] };
+
+        const all = settings.users.filter(u => u.id !== currentUser.id);
+        const managerId = currentUser.managerId;
+        const myDept = currentUser.department;
+
+        const manager = all.filter(u => u.id === managerId);
+        const dept = all.filter(u => u.id !== managerId && u.department === myDept);
+        const others = all.filter(u => u.id !== managerId && u.department !== myDept);
+
+        return { manager, department: dept, others };
     }, [settings.users, currentUser]);
+
+    const [openCombobox, setOpenCombobox] = useState(false);
 
     const [dateRange, setDateRange] = useState<DateRange | undefined>();
     const [leaveType, setLeaveType] = useState("Nghỉ phép năm");
@@ -324,24 +340,108 @@ export default function LeaveRequestPage() {
                                 </div>
                                 <div className="space-y-2">
                                     <Label>Bàn giao công việc cho <span className="text-muted-foreground font-normal text-xs">(nếu có)</span></Label>
-                                    <Select value={handoverPerson} onValueChange={setHandoverPerson}>
-                                        <SelectTrigger>
-                                            <SelectValue placeholder="Chọn đồng nghiệp" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <div className="px-2 py-1.5 text-xs font-medium text-slate-500 border-b mb-1">
-                                                {currentUser?.department || "Phòng ban"}
-                                            </div>
-                                            {departmentColleagues.map((colleague: any) => (
-                                                <SelectItem key={colleague.id} value={colleague.id}>
-                                                    <div className="flex items-center gap-2">
-                                                        <span>{colleague.name}</span>
-                                                        <span className="text-xs text-slate-400">({colleague.role})</span>
-                                                    </div>
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
+                                    <Popover open={openCombobox} onOpenChange={setOpenCombobox}>
+                                        <PopoverTrigger asChild>
+                                            <Button
+                                                variant="outline"
+                                                role="combobox"
+                                                aria-expanded={openCombobox}
+                                                className="w-full justify-between"
+                                            >
+                                                {handoverPerson
+                                                    ? settings.users.find((u) => u.id === handoverPerson)?.name
+                                                    : "Chọn đồng nghiệp..."}
+                                                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                            </Button>
+                                        </PopoverTrigger>
+                                        <PopoverContent className="w-[300px] p-0" align="start">
+                                            <Command>
+                                                <CommandInput placeholder="Tìm tên đồng nghiệp..." />
+                                                <CommandList>
+                                                    <CommandEmpty>Không tìm thấy nhân viên.</CommandEmpty>
+
+                                                    {/* Prioritized Groups */}
+                                                    {groupedColleagues.manager.length > 0 && (
+                                                        <CommandGroup heading="Quản lý trực tiếp">
+                                                            {groupedColleagues.manager.map((u) => (
+                                                                <CommandItem
+                                                                    key={u.id}
+                                                                    value={u.name}
+                                                                    onSelect={() => {
+                                                                        setHandoverPerson(u.id === handoverPerson ? "" : u.id)
+                                                                        setOpenCombobox(false)
+                                                                    }}
+                                                                >
+                                                                    <Check
+                                                                        className={cn(
+                                                                            "mr-2 h-4 w-4",
+                                                                            handoverPerson === u.id ? "opacity-100" : "opacity-0"
+                                                                        )}
+                                                                    />
+                                                                    <div className="flex flex-col">
+                                                                        <span>{u.name}</span>
+                                                                        <span className="text-xs text-muted-foreground">Manager</span>
+                                                                    </div>
+                                                                </CommandItem>
+                                                            ))}
+                                                        </CommandGroup>
+                                                    )}
+
+                                                    {groupedColleagues.department.length > 0 && (
+                                                        <CommandGroup heading={`Cùng phòng ban (${currentUser?.department})`}>
+                                                            {groupedColleagues.department.map((u) => (
+                                                                <CommandItem
+                                                                    key={u.id}
+                                                                    value={u.name}
+                                                                    onSelect={() => {
+                                                                        setHandoverPerson(u.id === handoverPerson ? "" : u.id)
+                                                                        setOpenCombobox(false)
+                                                                    }}
+                                                                >
+                                                                    <Check
+                                                                        className={cn(
+                                                                            "mr-2 h-4 w-4",
+                                                                            handoverPerson === u.id ? "opacity-100" : "opacity-0"
+                                                                        )}
+                                                                    />
+                                                                    <div className="flex flex-col">
+                                                                        <span>{u.name}</span>
+                                                                        <span className="text-xs text-muted-foreground">{u.role}</span>
+                                                                    </div>
+                                                                </CommandItem>
+                                                            ))}
+                                                        </CommandGroup>
+                                                    )}
+
+                                                    {groupedColleagues.others.length > 0 && (
+                                                        <CommandGroup heading="Phòng ban khác">
+                                                            {groupedColleagues.others.map((u) => (
+                                                                <CommandItem
+                                                                    key={u.id}
+                                                                    value={u.name}
+                                                                    onSelect={() => {
+                                                                        setHandoverPerson(u.id === handoverPerson ? "" : u.id)
+                                                                        setOpenCombobox(false)
+                                                                    }}
+                                                                >
+                                                                    <Check
+                                                                        className={cn(
+                                                                            "mr-2 h-4 w-4",
+                                                                            handoverPerson === u.id ? "opacity-100" : "opacity-0"
+                                                                        )}
+                                                                    />
+                                                                    <div className="flex flex-col">
+                                                                        <span>{u.name}</span>
+                                                                        <span className="text-xs text-muted-foreground">{u.department || 'N/A'}</span>
+                                                                    </div>
+                                                                </CommandItem>
+                                                            ))}
+                                                        </CommandGroup>
+                                                    )}
+                                                </CommandList>
+                                            </Command>
+                                        </PopoverContent>
+                                    </Popover>
                                 </div>
                             </div>
 

@@ -21,7 +21,7 @@ export default function Dashboard() {
 
     // 0. Manager Logic: Get pending requests from subordinates
     const pendingApprovalRequests = useMemo(() => {
-        if (!currentUser || currentUser.role !== 'manager') return [];
+        if (!currentUser || !['manager', 'director', 'admin'].includes(currentUser.role)) return [];
         return settings.leaveRequests.filter(req => {
             const requester = settings.users?.find(u => u.id === req.userId);
             // Check if requester exists and reports to current user
@@ -31,7 +31,7 @@ export default function Dashboard() {
 
     // Manager Logic: Get approved requests from subordinates (for cancellation)
     const approvedSubordinateRequests = useMemo(() => {
-        if (!currentUser || currentUser.role !== 'manager') return [];
+        if (!currentUser || !['manager', 'director', 'admin'].includes(currentUser.role)) return [];
         return settings.leaveRequests.filter(req => {
             const requester = settings.users?.find(u => u.id === req.userId);
             return requester && requester.managerId === currentUser.id && req.status === 'approved';
@@ -256,7 +256,7 @@ export default function Dashboard() {
             </div>
 
             {/* Manager Section: Pending Approvals */}
-            {currentUser?.role === 'manager' && pendingApprovalRequests.length > 0 && (
+            {currentUser && ['manager', 'director', 'admin'].includes(currentUser.role) && pendingApprovalRequests.length > 0 && (
                 <div className="space-y-4">
                     <h2 className="text-xl font-bold text-slate-900">Cần duyệt ({pendingApprovalRequests.length})</h2>
                     <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
@@ -331,7 +331,7 @@ export default function Dashboard() {
             )}
 
             {/* Manager Section: Approved Requests (for cancellation if needed) */}
-            {currentUser?.role === 'manager' && approvedSubordinateRequests.length > 0 && (
+            {currentUser && ['manager', 'director', 'admin'].includes(currentUser.role) && approvedSubordinateRequests.length > 0 && (
                 <div className="space-y-4">
                     <h2 className="text-xl font-bold text-slate-900">Đã duyệt ({approvedSubordinateRequests.length})</h2>
                     <p className="text-sm text-slate-500">Nếu nhân viên muốn huỷ đơn đã duyệt, bạn có thể huỷ ở đây.</p>
