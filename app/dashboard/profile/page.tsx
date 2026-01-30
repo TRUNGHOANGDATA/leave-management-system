@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { useApp } from "@/context/AppContext";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useToast } from "@/components/ui/use-toast";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 export default function ProfilePage() {
     const { currentUser, updateUser } = useApp();
@@ -68,58 +69,76 @@ export default function ProfilePage() {
                     <CardDescription>Thông tin hiển thị trên hệ thống.</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
-                    <div className="flex flex-col md:flex-row gap-6 items-start">
-                        <div className="flex flex-col items-center gap-3">
-                            <Avatar className="h-24 w-24 border-2 border-white shadow-md">
+                    <div className="flex flex-col md:flex-row gap-8 items-start">
+                        <div className="flex flex-col items-center gap-2 pt-2">
+                            <Avatar className="h-20 w-20 border-2 border-slate-100 shadow-sm">
                                 <AvatarImage src={formData.avatarUrl} alt={currentUser.name} />
-                                <AvatarFallback className="text-2xl">{currentUser.name.charAt(0)}</AvatarFallback>
+                                <AvatarFallback className="text-xl bg-slate-100 text-slate-500">{currentUser.name.charAt(0)}</AvatarFallback>
                             </Avatar>
-                            <div className="w-full max-w-xs text-center">
-                                <p className="text-xs text-slate-500 mb-2">
-                                    Nhập URL ảnh từ dịch vụ lưu trữ (ImgBB, Cloudinary, Google Drive...)
-                                </p>
-                                <Input
-                                    value={formData.avatarUrl}
-                                    onChange={(e) => setFormData(prev => ({ ...prev, avatarUrl: e.target.value }))}
-                                    className="h-9 text-sm"
-                                    placeholder="https://example.com/avatar.jpg"
-                                />
+
+                            <div className="flex flex-col items-center">
+                                <Popover>
+                                    <PopoverTrigger asChild>
+                                        <Button variant="ghost" size="sm" className="h-7 text-xs text-blue-600 hover:text-blue-700 hover:bg-blue-50 px-2">
+                                            Đổi ảnh
+                                        </Button>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-80 p-3" side="bottom" align="center">
+                                        <div className="space-y-2">
+                                            <h4 className="font-medium text-xs leading-none">URL Ảnh đại diện</h4>
+                                            <p className="text-[10px] text-muted-foreground">
+                                                Dùng link ảnh từ ImgBB, Cloudinary, Drive...
+                                            </p>
+                                            <div className="flex gap-2">
+                                                <Input
+                                                    value={formData.avatarUrl}
+                                                    onChange={(e) => setFormData(prev => ({ ...prev, avatarUrl: e.target.value }))}
+                                                    className="h-8 text-xs"
+                                                    placeholder="https://..."
+                                                />
+                                            </div>
+                                        </div>
+                                    </PopoverContent>
+                                </Popover>
                             </div>
                         </div>
 
-                        <div className="grid gap-4 flex-1 w-full">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="grid gap-5 flex-1 w-full">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                                 <div className="space-y-2">
-                                    <Label htmlFor="fullName">Họ và tên</Label>
+                                    <Label htmlFor="fullName" className="text-sm font-medium">Họ và tên</Label>
                                     <Input
                                         id="fullName"
                                         value={formData.name}
                                         onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                                        className="bg-white"
                                     />
                                 </div>
                                 <div className="space-y-2">
-                                    <Label htmlFor="phone">Số điện thoại</Label>
+                                    <Label htmlFor="email" className="text-sm font-medium">Email</Label>
+                                    <Input
+                                        id="email"
+                                        value={formData.email}
+                                        onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
+                                        className="bg-white"
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                                <div className="space-y-2">
+                                    <Label htmlFor="phone" className="text-sm font-medium">Số điện thoại</Label>
                                     <Input
                                         id="phone"
                                         value={formData.phone}
                                         onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
                                         placeholder="Chưa cập nhật"
-                                    />
-                                </div>
-                            </div>
-
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div className="space-y-2">
-                                    <Label htmlFor="email">Email</Label>
-                                    <Input
-                                        id="email"
-                                        value={formData.email}
-                                        onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
+                                        className="bg-white"
                                     />
                                 </div>
                                 <div className="space-y-2">
-                                    <Label htmlFor="code" className="text-slate-500">Mã nhân viên</Label>
-                                    <Input id="code" value={currentUser.employeeCode || "---"} disabled className="bg-slate-50" />
+                                    <Label htmlFor="code" className="text-sm font-medium text-slate-500">Mã nhân viên</Label>
+                                    <Input id="code" value={currentUser.employeeCode || "---"} disabled className="bg-slate-50 text-slate-500" />
                                 </div>
                             </div>
                         </div>
