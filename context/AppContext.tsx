@@ -519,7 +519,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
                                 to: requester.email,
                                 data: {
                                     requesterName: requester.name,
-                                    status: statusMessage, // 'DUYỆT' / 'TỪ CHỐI'
+                                    status: status, // 'approved' / 'rejected' for logic check
                                     statusColor: status === 'approved' ? '#16a34a' : '#dc2626', // Green/Red
                                     approverName: approverName || currentUser?.name || 'Quản lý',
                                     fromDate: request?.fromDate,

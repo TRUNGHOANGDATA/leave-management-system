@@ -73,16 +73,20 @@ export default function LeaveRequestPage() {
         let unpaidUsed = 0;
 
         for (const req of userRequests) {
-            if (req.type === "Nghỉ không lương") {
-                unpaidUsed += req.duration;
-            } else if (LEGAL_ALLOWANCES[req.type] !== undefined) {
-                // Special leave with legal allowance
-                const allowance = LEGAL_ALLOWANCES[req.type];
-                const excessDays = Math.max(0, req.duration - allowance);
-                annualUsed += excessDays; // Only excess days count against annual leave
-            } else {
-                // Regular leave types (Nghỉ phép năm, Nghỉ ốm, Nghỉ việc riêng, etc.)
-                annualUsed += req.duration;
+            // 1. Accumulate Unpaid
+            if (req.daysUnpaid) unpaidUsed += req.daysUnpaid;
+            else if (req.type === "Nghỉ không lương") unpaidUsed += req.duration;
+
+            // 2. Accumulate Annual
+            if (req.daysAnnual) annualUsed += req.daysAnnual;
+            else if (req.type !== "Nghỉ không lương") {
+                // Fallback for old data or un-calculated fields
+                if (LEGAL_ALLOWANCES[req.type] !== undefined) {
+                    const allowance = LEGAL_ALLOWANCES[req.type];
+                    annualUsed += Math.max(0, req.duration - allowance);
+                } else {
+                    annualUsed += req.duration;
+                }
             }
         }
 

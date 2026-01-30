@@ -63,14 +63,21 @@ export default function Dashboard() {
         let unpaidUsed = 0;
 
         for (const req of userRequests) {
-            if (req.type === "Nghỉ không lương") {
-                unpaidUsed += req.duration;
-            } else if (LEGAL_ALLOWANCES[req.type] !== undefined) {
-                const allowance = LEGAL_ALLOWANCES[req.type];
-                const excessDays = Math.max(0, req.duration - allowance);
-                annualUsed += excessDays;
-            } else {
-                annualUsed += req.duration;
+            // 1. Accumulate Unpaid
+            if (req.daysUnpaid) unpaidUsed += req.daysUnpaid;
+            else if (req.type === "Nghỉ không lương") unpaidUsed += req.duration;
+
+            // 2. Accumulate Annual
+            if (req.daysAnnual) annualUsed += req.daysAnnual;
+            else if (req.type !== "Nghỉ không lương") {
+                // Fallback for old data or un-calculated fields
+                if (LEGAL_ALLOWANCES[req.type] !== undefined) {
+                    const allowance = LEGAL_ALLOWANCES[req.type];
+                    annualUsed += Math.max(0, req.duration - allowance);
+                } else {
+                    // Regular leave types that fallback to duration if daysAnnual is missing
+                    annualUsed += req.duration;
+                }
             }
         }
 
