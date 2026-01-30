@@ -42,22 +42,44 @@ export default function ResetPasswordPage() {
 
         setIsLoading(true);
         try {
-            // Simplified: Trust supabase client to handle session from URL hash automatically
-            // If session is missing, updateUser will throw error, which we catch.
+            // FORCE SESSION RECOVERY FROM HASH
+            const hash = window.location.hash;
+            let currentSession = (await supabase.auth.getSession()).data.session;
+
+            if (!currentSession && hash && hash.includes("access_token")) {
+                console.log("Manual hash parsing triggered...");
+                const params = new URLSearchParams(hash.replace("#", "?"));
+                const access_token = params.get("access_token");
+                const refresh_token = params.get("refresh_token");
+
+                if (access_token && refresh_token) {
+                    const { data, error } = await supabase.auth.setSession({
+                        access_token,
+                        refresh_token
+                    });
+                    if (!error && data.session) {
+                        currentSession = data.session;
+                        console.log("Session manually set from hash.");
+                    }
+                }
+            }
+
+            if (!currentSession) {
+                throw new Error("Không tìm thấy phiên đăng nhập. Vui lòng tải lại trang hoặc click lại vào link email.");
+            }
+
             const { error } = await supabase.auth.updateUser({ password });
 
             if (error) throw error;
 
             toast({ title: "Đổi mật khẩu thành công! ✅", description: "Đang chuyển về trang đăng nhập..." });
 
-            // Allow a moment for the toast to show
             await new Promise(resolve => setTimeout(resolve, 1000));
-
             await supabase.auth.signOut();
-            router.push("/login");
+            router.push("/login?message=PasswordUpdated");
         } catch (err: any) {
             console.error("Reset Password Error:", err);
-            toast({ variant: "destructive", title: "Lỗi", description: err.message || "Không thể cập nhật mật khẩu. Hãy thử yêu cầu link mới." });
+            toast({ variant: "destructive", title: "Lỗi", description: err.message || "Không thể cập nhật mật khẩu." });
         } finally {
             setIsLoading(false);
         }
