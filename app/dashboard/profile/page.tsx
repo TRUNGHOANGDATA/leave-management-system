@@ -16,6 +16,7 @@ export default function ProfilePage() {
     const [formData, setFormData] = useState({
         name: "",
         phone: "",
+        email: "",
         avatarUrl: ""
     });
 
@@ -26,6 +27,7 @@ export default function ProfilePage() {
             setFormData({
                 name: currentUser.name || "",
                 phone: currentUser.phone || "",
+                email: currentUser.email || "",
                 avatarUrl: currentUser.avatarUrl || ""
             });
         }
@@ -39,6 +41,7 @@ export default function ProfilePage() {
                 id: currentUser.id,
                 name: formData.name,
                 phone: formData.phone,
+                email: formData.email,
                 avatarUrl: formData.avatarUrl
             });
             toast({ title: "Cập nhật thành công", description: "Thông tin cá nhân đã được lưu." });
@@ -67,18 +70,59 @@ export default function ProfilePage() {
                 <CardContent className="space-y-6">
                     <div className="flex flex-col md:flex-row gap-6 items-start">
                         <div className="flex flex-col items-center gap-3">
-                            <Avatar className="h-24 w-24 border-2 border-white shadow-md">
-                                <AvatarImage src={formData.avatarUrl} alt={currentUser.name} />
-                                <AvatarFallback className="text-2xl">{currentUser.name.charAt(0)}</AvatarFallback>
-                            </Avatar>
-                            <div className="w-full max-w-xs">
-                                <Label htmlFor="avatar" className="text-xs text-slate-500 mb-1 block">Avatar URL</Label>
+                            <div className="relative group">
+                                <Avatar className="h-24 w-24 border-2 border-white shadow-md">
+                                    <AvatarImage src={formData.avatarUrl} alt={currentUser.name} />
+                                    <AvatarFallback className="text-2xl">{currentUser.name.charAt(0)}</AvatarFallback>
+                                </Avatar>
+                                <label htmlFor="avatar-upload" className="absolute inset-0 flex items-center justify-center bg-black/40 text-white opacity-0 group-hover:opacity-100 transition-opacity rounded-full cursor-pointer">
+                                    <span className="text-xs font-medium">Thay đổi</span>
+                                </label>
+                                <input
+                                    id="avatar-upload"
+                                    type="file"
+                                    accept="image/*"
+                                    className="hidden"
+                                    onChange={async (e) => {
+                                        const file = e.target.files?.[0];
+                                        if (!file) return;
+
+                                        // Upload logic
+                                        const { supabase } = await import('@/lib/supabaseClient'); // Dynamic import to avoid top-level issues if any
+                                        const fileName = `${currentUser.id}-${Date.now()}`;
+
+                                        // Show loading/preview
+                                        const previewUrl = URL.createObjectURL(file);
+                                        setFormData(prev => ({ ...prev, avatarUrl: previewUrl }));
+
+                                        try {
+                                            const { data, error } = await supabase.storage
+                                                .from('avatars')
+                                                .upload(fileName, file, { upsert: true });
+
+                                            if (error) throw error;
+
+                                            const { data: { publicUrl } } = supabase.storage
+                                                .from('avatars')
+                                                .getPublicUrl(fileName);
+
+                                            setFormData(prev => ({ ...prev, avatarUrl: publicUrl }));
+                                            toast({ title: "Upload thành công", description: "Ảnh đại diện mới đã được tải lên." });
+                                        } catch (err) {
+                                            console.error(err);
+                                            toast({ variant: "destructive", title: "Lỗi Upload", description: "Không thể tải ảnh. Hãy chắc chắn Bucket 'avatars' Public tồn tại." });
+                                        }
+                                    }}
+                                />
+                            </div>
+                            <div className="w-full max-w-xs text-center">
+                                <p className="text-xs text-slate-500 mb-1">Click vào ảnh để thay đổi</p>
+                                {/* Legacy URL input hidden or kept as backup? Kept is fine */}
                                 <Input
-                                    id="avatar"
                                     value={formData.avatarUrl}
                                     onChange={(e) => setFormData(prev => ({ ...prev, avatarUrl: e.target.value }))}
-                                    className="h-8 text-xs"
-                                    placeholder="https://..."
+                                    className="h-8 text-xs mt-1"
+                                    placeholder="Hoặc nhập URL..."
                                 />
                             </div>
                         </div>
@@ -106,8 +150,12 @@ export default function ProfilePage() {
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div className="space-y-2">
-                                    <Label htmlFor="email" className="text-slate-500">Email</Label>
-                                    <Input id="email" value={currentUser.email} disabled className="bg-slate-50" />
+                                    <Label htmlFor="email">Email</Label>
+                                    <Input
+                                        id="email"
+                                        value={formData.email}
+                                        onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
+                                    />
                                 </div>
                                 <div className="space-y-2">
                                     <Label htmlFor="code" className="text-slate-500">Mã nhân viên</Label>
