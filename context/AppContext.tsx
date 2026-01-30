@@ -78,8 +78,9 @@ interface AppContextType {
     cancelLeaveRequest: (requestId: string) => void; // Employee self-cancel for PENDING only
     setUsers: (users: User[]) => void; // Legacy / Optimistic
     addUser: (user: User) => Promise<void>;
-    updateUser: (user: User) => Promise<void>;
+    updateUser: (user: Partial<User>) => Promise<void>;
     removeUser: (userId: string) => Promise<void>;
+    addBulkUsers: (users: User[]) => Promise<void>;
     refreshData: () => Promise<void>;
 }
 
@@ -108,6 +109,7 @@ const AppContext = createContext<AppContextType>({
     addUser: async () => { },
     updateUser: async () => { },
     removeUser: async () => { },
+    addBulkUsers: async () => { },
     refreshData: async () => { }
 });
 
@@ -323,10 +325,35 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         } catch (e) { console.error("Add User Exception", e); }
     };
 
-    const updateUser = async (user: User) => {
+    const addBulkUsers = async (users: User[]) => {
+        // Optimistic Update
+        setSettings(prev => ({ ...prev, users: [...prev.users, ...users] }));
+
+        try {
+            const dbPayload = users.map(user => ({
+                email: user.email,
+                name: user.name,
+                role: user.role,
+                department: user.department,
+                manager_id: user.managerId,
+                avatar_url: user.avatarUrl,
+                employee_code: user.employeeCode,
+                work_location: user.workLocation,
+                job_title: user.jobTitle
+            }));
+
+            const { error } = await supabase.from('users').insert(dbPayload);
+            if (error) console.error("Bulk Add User Error", error);
+            else refreshData();
+        } catch (e) {
+            console.error("Bulk Add User Exception", e);
+        }
+    };
+
+    const updateUser = async (user: Partial<User>) => {
         setSettings(prev => ({
             ...prev,
-            users: prev.users.map(u => u.id === user.id ? user : u)
+            users: prev.users.map(u => u.id === user.id ? { ...u, ...user } : u)
         }));
         try {
             const { error } = await supabase.from('users').update({
@@ -528,7 +555,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const notificationCount = currentUser ? settings.notifications.filter(n => n.recipientId === currentUser.id && !n.isRead).length : 0;
 
     return (
-        <AppContext.Provider value={{ settings, currentUser, notificationCount, markNotificationRead, login, setWorkSchedule, addHoliday, removeHoliday, setHolidays, addLeaveRequest, updateLeaveRequestStatus, cancelLeaveRequest, setUsers, addUser, updateUser, removeUser, refreshData }}>
+        <AppContext.Provider value={{ settings, currentUser, notificationCount, markNotificationRead, login, setWorkSchedule, addHoliday, removeHoliday, setHolidays, addLeaveRequest, updateLeaveRequestStatus, cancelLeaveRequest, setUsers, addUser, updateUser, removeUser, addBulkUsers, refreshData }}>
             {children}
         </AppContext.Provider>
     );

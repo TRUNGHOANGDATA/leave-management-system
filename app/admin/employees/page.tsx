@@ -379,7 +379,7 @@ const EmployeeEditDialog = ({
 };
 
 export default function EmployeeManagementPage() {
-    const { settings, setUsers, updateUser, removeUser, addUser, currentUser } = useApp(); // Connect to App Context
+    const { addUser, removeUser, addBulkUsers, updateUser, setUsers, settings, currentUser } = useApp(); // Connect to App Context
     const [employees, setEmployees] = useState<Employee[]>([]);
     const [searchTerm, setSearchTerm] = useState("");
     const [departmentFilter, setDepartmentFilter] = useState("all");
@@ -487,6 +487,8 @@ export default function EmployeeManagementPage() {
 
                 // Headers: STT(0), Name(1), Email(2), Dept(3), Location(4), JobTitle(5), Role(6), ManagerEmail(7)
                 // Start from row 1 (skip header)
+                const newUsers: User[] = [];
+
                 for (let i = 1; i < data.length; i++) {
                     const row: any = data[i];
                     if (!row[1] || !row[2]) continue; // Skip empty name/email
@@ -495,16 +497,16 @@ export default function EmployeeManagementPage() {
                     const email = String(row[2]).trim().toLowerCase();
                     const dept = String(row[3] || "").trim();
                     const location = String(row[4] || "").trim();
-                    const jobTitleStr = String(row[5] || "").trim(); // Job Title at index 5
-                    const roleStr = String(row[6] || "").trim().toLowerCase(); // Role is now at index 6
-                    const managerEmail = String(row[7] || "").trim().toLowerCase(); // ManagerEmail at index 7
-                    // const code = row[6] ? String(row[6]).trim() : undefined; // Removed employeeCode from import
+                    const jobTitleStr = String(row[5] || "").trim();
+                    const roleStr = String(row[6] || "").trim().toLowerCase();
+                    const managerEmail = String(row[7] || "").trim().toLowerCase();
 
-                    // 1. Check Duplicate (Email matches existing user)
-                    // Rule: "if duplicate name AND email" -> skip. 
-                    // But actually email must be unique in system usually. checking email is enough.
-                    const exists = settings.users.some(u => u.email.toLowerCase() === email);
-                    if (exists) {
+                    // 1. Check Duplicate against DB
+                    const existsInDb = settings.users.some(u => u.email.toLowerCase() === email);
+                    // 2. Check Duplicate against Batch
+                    const existsInBatch = newUsers.some(u => u.email.toLowerCase() === email);
+
+                    if (existsInDb || existsInBatch) {
                         skipCount++;
                         continue;
                     }
@@ -528,25 +530,25 @@ export default function EmployeeManagementPage() {
                     maxCode++;
                     const newCode = `NV_${String(maxCode).padStart(4, "0")}`;
 
-                    // 5. Add User to DB
-                    await addUser({
-                        id: "", // Let DB handle UUID? No, we need ID for React key immediately? 
-                        // addUser in Context generates UUID if insert returns it.
-                        // Actually addUser takes User object. 
-                        // But we don't have ID yet. We can pass empty ID and let context/db handle.
-                        // However, Context addUser implementation inserts to DB. We trust DB.
+                    // 5. Add to Batch Array
+                    newUsers.push({
+                        id: "", // Placeholder, DB/Context will generally ignore or handle
                         name: toTitleCase(name),
                         email: email,
                         department: dept,
                         workLocation: location,
-                        jobTitle: jobTitleStr, // Include Job Title
+                        jobTitle: jobTitleStr,
                         role: role,
                         managerId: managerId,
                         employeeCode: newCode
-                    } as any); // Cast as any because ID is missing but addUser might expect it. 
-                    // Actually interface User has id: string. We can generate a temp one.
+                    } as User);
 
                     successCount++;
+                }
+
+                // Batch Insert
+                if (newUsers.length > 0) {
+                    await addBulkUsers(newUsers);
                 }
 
                 toast({
