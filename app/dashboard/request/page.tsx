@@ -189,38 +189,35 @@ export default function LeaveRequestPage() {
             if (totalDays <= allowance) return "(Miễn trừ - Chế độ)";
             // Check remaining days after allowance
             const remainingRequest = totalDays - allowance;
-            const remainingBalance = currentUser.annualLeaveRemaining || 0;
 
-            if (remainingRequest <= remainingBalance) {
+            if (remainingRequest <= leaveLeft) {
                 return `(Trừ ${remainingRequest} phép năm, ${allowance} chế độ)`;
             }
-            return `(Trừ ${remainingBalance} phép năm, ${remainingRequest - remainingBalance} không lương, ${allowance} chế độ)`;
+            return `(Trừ ${leaveLeft} phép năm, ${remainingRequest - leaveLeft} không lương, ${allowance} chế độ)`;
         }
 
         // Logic for Annual Leave (Nghỉ phép năm)
         if (leaveType === "Nghỉ phép năm") {
-            const remainingBalance = currentUser.annualLeaveRemaining || 0;
-            if (totalDays <= remainingBalance) {
+            if (totalDays <= leaveLeft) {
                 return "(Tính vào phép năm)";
             }
             // Not enough balance -> Split
-            const unpaid = totalDays - remainingBalance;
+            const unpaid = Number((totalDays - leaveLeft).toFixed(1));
             return (
                 <span className="text-amber-600 font-semibold">
-                    (Vượt quá phép năm: {remainingBalance} phép, {unpaid} không lương)
+                    (Vượt quá phép năm: {leaveLeft} phép, {unpaid} không lương)
                 </span>
             );
         }
 
-        // Default for 'Khác' or unmapped types: assume all annual leave for now, but show warning if exceeding
-        const remainingBalance = currentUser.annualLeaveRemaining || 0;
-        if (totalDays > remainingBalance) {
-            const unpaid = totalDays - remainingBalance;
-            return `(Dự kiến: ${remainingBalance} phép, ${unpaid} không lương)`;
+        // Default for 'Khác' or unmapped types
+        if (totalDays > leaveLeft) {
+            const unpaid = Number((totalDays - leaveLeft).toFixed(1));
+            return `(Dự kiến: ${leaveLeft} phép, ${unpaid} không lương)`;
         }
 
         return "(Tính vào phép năm)";
-    }, [leaveType, totalDays, currentUser]);
+    }, [leaveType, totalDays, currentUser, leaveLeft]);
 
     // Helper to toggle sessions
     const toggleSession = (dateStr: string, session: 'morning' | 'afternoon') => {
@@ -276,8 +273,7 @@ export default function LeaveRequestPage() {
 
                 if (remaining > 0) {
                     // Check if user has remaining annual leave
-                    const remainingAnnualLeave = currentUser ? 12 - annualLeaveUsed : 0;
-                    daysAnnual = Math.min(remaining, remainingAnnualLeave);
+                    daysAnnual = Math.min(remaining, leaveLeft);
                     daysUnpaid = remaining - daysAnnual;
                 }
 
@@ -289,8 +285,7 @@ export default function LeaveRequestPage() {
                 exemptionNote = parts.join(" + ");
             } else {
                 // Regular annual leave type
-                const remainingAnnualLeave = currentUser ? 12 - annualLeaveUsed : 0;
-                daysAnnual = Math.min(totalDays, remainingAnnualLeave);
+                daysAnnual = Math.min(totalDays, leaveLeft);
                 daysUnpaid = totalDays - daysAnnual;
 
                 const parts = [];
