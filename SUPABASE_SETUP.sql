@@ -35,14 +35,31 @@ CREATE TABLE IF NOT EXISTS leave_requests (
     duration FLOAT,
     status TEXT DEFAULT 'pending',
     reason TEXT,
+    approved_by TEXT,
     approved_by_name TEXT,
+    approved_at TIMESTAMP WITH TIME ZONE,
     exemption_note TEXT,
     request_details JSONB,
     days_annual FLOAT DEFAULT 0,
     days_unpaid FLOAT DEFAULT 0,
     days_exempt FLOAT DEFAULT 0,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
+
+-- Ensure approved_at exists (for existing tables)
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='leave_requests' AND column_name='approved_at') THEN
+        ALTER TABLE leave_requests ADD COLUMN approved_at TIMESTAMP WITH TIME ZONE;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='leave_requests' AND column_name='approved_by') THEN
+        ALTER TABLE leave_requests ADD COLUMN approved_by TEXT;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='leave_requests' AND column_name='updated_at') THEN
+        ALTER TABLE leave_requests ADD COLUMN updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW();
+    END IF;
+END $$;
 
 -- 4. Create Notifications Table
 CREATE TABLE IF NOT EXISTS notifications (
