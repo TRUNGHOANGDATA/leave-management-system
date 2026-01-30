@@ -236,12 +236,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
     // Independent fetch for current user profile to ensure fast load (don't wait for bulk data)
     const fetchUserProfile = async (userId: string) => {
+        console.log("[fetchUserProfile] Starting for userId:", userId);
         try {
             const { data: userProfile, error } = await supabase
                 .from('users')
                 .select('*')
                 .eq('id', userId)
                 .single();
+
+            console.log("[fetchUserProfile] Result:", { userProfile, error });
 
             if (error) throw error;
 
@@ -259,12 +262,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
                     jobTitle: userProfile.job_title || undefined,
                     phone: userProfile.phone || undefined
                 };
+                console.log("[fetchUserProfile] Setting currentUser:", mapped);
                 setCurrentUser(mapped);
                 return mapped;
+            } else {
+                console.warn("[fetchUserProfile] No user profile found for userId:", userId);
             }
         } catch (err) {
-            console.error("Error fetching user profile:", err);
-            // Fallback object if record missing but auth exists
+            console.error("[fetchUserProfile] Error:", err);
             return null;
         }
     };
@@ -274,18 +279,23 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
         // 1. Check session immediately on mount
         const initAuth = async () => {
-            const { data: { session } } = await supabase.auth.getSession();
+            console.log("[initAuth] Starting...");
+            const { data: { session }, error } = await supabase.auth.getSession();
+            console.log("[initAuth] getSession result:", { session: session?.user?.email, error });
+
             if (session?.user && mounted) {
                 await fetchUserProfile(session.user.id);
+            } else {
+                console.log("[initAuth] No session found");
             }
         };
         initAuth();
 
         // 2. Listen for auth changes (login, logout, token refresh)
         const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
-            console.log("Auth Event:", event);
+            console.log("[onAuthStateChange] Event:", event, "User:", session?.user?.email);
 
-            if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+            if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'INITIAL_SESSION') {
                 if (session?.user && mounted) {
                     await fetchUserProfile(session.user.id);
                 }
