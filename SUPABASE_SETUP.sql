@@ -61,11 +61,15 @@ VALUES ('Quản trị mẫu', 'admin@company.com', 'admin', 'Ban Giám Đốc', 
 ON CONFLICT (email) DO NOTHING;
 
 -- 6. Enable Row Level Security (Recommended but optional - Set generic policy)
+-- 6. Enable Row Level Security (Recommended but optional - Set generic policy)
 ALTER TABLE users ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Public Access" ON users;
 CREATE POLICY "Public Access" ON users FOR ALL USING (true) WITH CHECK (true);
 
 ALTER TABLE leave_requests ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Public Access" ON leave_requests;
 CREATE POLICY "Public Access" ON leave_requests FOR ALL USING (true) WITH CHECK (true);
 
 ALTER TABLE notifications ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Public Access" ON notifications;
 CREATE POLICY "Public Access" ON notifications FOR ALL USING (true) WITH CHECK (true);
