@@ -2,81 +2,45 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabaseClient";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/components/ui/use-toast";
-import { Loader2, AlertCircle, CheckCircle } from "lucide-react";
+import { Loader2, AlertCircle, KeyRound } from "lucide-react";
 
 export default function ResetPasswordPage() {
     const [password, setPassword] = useState("");
     const [confirmPassword, setConfirmPassword] = useState("");
     const [isLoading, setIsLoading] = useState(false);
-    const [sessionReady, setSessionReady] = useState(false);
+    const [accessToken, setAccessToken] = useState<string | null>(null);
     const [initError, setInitError] = useState<string | null>(null);
     const router = useRouter();
     const { toast } = useToast();
 
-    // Initialize session from URL hash on component mount
+    // Extract access token from URL hash on component mount
     useEffect(() => {
-        const initSession = async () => {
-            try {
-                // First, check if session already exists
-                let { data: { session } } = await supabase.auth.getSession();
-
-                if (session) {
-                    console.log("Session already exists");
-                    setSessionReady(true);
-                    return;
-                }
-
-                // If no session, try to parse from hash
-                const hash = window.location.hash;
-                if (hash && hash.includes("access_token")) {
-                    console.log("Parsing session from URL hash...");
-                    const params = new URLSearchParams(hash.replace("#", "?"));
-                    const access_token = params.get("access_token");
-                    const refresh_token = params.get("refresh_token");
-
-                    if (access_token && refresh_token) {
-                        const { data, error } = await supabase.auth.setSession({
-                            access_token,
-                            refresh_token
-                        });
-
-                        if (error) {
-                            console.error("setSession error:", error);
-                            setInitError("Không thể khôi phục phiên đăng nhập. Link có thể đã hết hạn.");
-                            return;
-                        }
-
-                        if (data.session) {
-                            console.log("Session set successfully from hash");
-                            setSessionReady(true);
-                            // Clear the hash from URL for cleaner look
-                            window.history.replaceState(null, '', window.location.pathname);
-                            return;
-                        }
-                    }
-                }
-
-                setInitError("Không tìm thấy thông tin đăng nhập. Vui lòng yêu cầu link đổi mật khẩu mới.");
-            } catch (err: any) {
-                console.error("Init session error:", err);
-                setInitError(err.message || "Lỗi khởi tạo phiên đăng nhập");
+        const hash = window.location.hash;
+        if (hash && hash.includes("access_token")) {
+            const params = new URLSearchParams(hash.replace("#", "?"));
+            const token = params.get("access_token");
+            if (token) {
+                setAccessToken(token);
+                // Clear the hash from URL for cleaner look
+                window.history.replaceState(null, '', window.location.pathname);
+            } else {
+                setInitError("Không tìm thấy token trong link. Vui lòng yêu cầu link mới.");
             }
-        };
-
-        initSession();
+        } else {
+            setInitError("Link không hợp lệ. Vui lòng yêu cầu link đổi mật khẩu mới.");
+        }
     }, []);
 
     const handleUpdatePassword = async (e: React.FormEvent) => {
         e.preventDefault();
 
-        if (!sessionReady) {
-            toast({ variant: "destructive", title: "Lỗi", description: "Phiên đăng nhập chưa sẵn sàng. Vui lòng tải lại trang." });
+        if (!accessToken) {
+            toast({ variant: "destructive", title: "Lỗi", description: "Không có token xác thực." });
             return;
         }
 
@@ -92,22 +56,29 @@ export default function ResetPasswordPage() {
 
         setIsLoading(true);
         try {
-            const { error } = await supabase.auth.updateUser({ password });
+            // Call server-side API to update password
+            const response = await fetch('/api/reset-password', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    access_token: accessToken,
+                    new_password: password
+                })
+            });
 
-            if (error) throw error;
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(data.error || 'Đã có lỗi xảy ra');
+            }
 
             toast({ title: "Đổi mật khẩu thành công! ✅", description: "Đang chuyển về trang đăng nhập..." });
 
-            await new Promise(resolve => setTimeout(resolve, 1000));
-            await supabase.auth.signOut();
+            await new Promise(resolve => setTimeout(resolve, 1500));
             router.push("/login?message=PasswordUpdated");
         } catch (err: any) {
             console.error("Reset Password Error:", err);
-            let msg = err.message;
-            if (msg.includes("different from the old")) {
-                msg = "Mật khẩu mới phải khác mật khẩu cũ.";
-            }
-            toast({ variant: "destructive", title: "Lỗi", description: msg || "Không thể cập nhật mật khẩu." });
+            toast({ variant: "destructive", title: "Lỗi", description: err.message || "Không thể cập nhật mật khẩu." });
         } finally {
             setIsLoading(false);
         }
@@ -133,14 +104,14 @@ export default function ResetPasswordPage() {
         );
     }
 
-    // Show loading state while initializing session
-    if (!sessionReady) {
+    // Show loading state while extracting token
+    if (!accessToken) {
         return (
             <div className="flex items-center justify-center min-h-screen bg-slate-50 p-4">
                 <Card className="w-full max-w-md shadow-lg">
                     <CardHeader className="space-y-1 text-center">
                         <Loader2 className="mx-auto h-12 w-12 animate-spin text-primary mb-2" />
-                        <CardTitle className="text-xl">Đang khởi tạo...</CardTitle>
+                        <CardTitle className="text-xl">Đang xử lý...</CardTitle>
                         <CardDescription>Vui lòng đợi trong giây lát</CardDescription>
                     </CardHeader>
                 </Card>
@@ -152,7 +123,7 @@ export default function ResetPasswordPage() {
         <div className="flex items-center justify-center min-h-screen bg-slate-50 p-4">
             <Card className="w-full max-w-md shadow-lg">
                 <CardHeader className="space-y-1 text-center">
-                    <CheckCircle className="mx-auto h-8 w-8 text-green-500 mb-2" />
+                    <KeyRound className="mx-auto h-10 w-10 text-primary mb-2" />
                     <CardTitle className="text-2xl font-bold text-primary">Đặt lại mật khẩu</CardTitle>
                     <CardDescription>Nhập mật khẩu mới cho tài khoản của bạn</CardDescription>
                 </CardHeader>
