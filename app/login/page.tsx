@@ -92,7 +92,12 @@ export default function LoginPage() {
                 description: "Kiểm tra hộp thư đến (hoặc spam) để đặt lại mật khẩu."
             });
         } catch (err: any) {
-            toast({ variant: "destructive", title: "Lỗi", description: err.message });
+            let msg = err.message || "";
+            if (msg.includes("rate limit")) msg = "Bạn gửi yêu cầu quá nhanh. Vui lòng đợi 1 phút rồi thử lại.";
+            else if (msg.includes("security purposes")) msg = "Vui lòng đợi 1 phút trước khi gửi lại yêu cầu.";
+            else msg = err.message;
+
+            toast({ variant: "destructive", title: "Lỗi gửi email", description: msg });
         } finally {
             setIsLoading(false);
         }
