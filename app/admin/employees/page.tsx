@@ -477,7 +477,7 @@ export default function EmployeeManagementPage() {
                 const data = XLSX.utils.sheet_to_json(ws, { header: 1 });
 
                 let successCount = 0;
-                let skipCount = 0;
+                let updateCount = 0;
 
                 // Pre-calculate max employee code to avoid duplicates during bulk insert (since state updates are async)
                 const currentCodes = settings.users
@@ -489,6 +489,7 @@ export default function EmployeeManagementPage() {
                 // Headers: STT(0), Name(1), Email(2), Dept(3), Location(4), JobTitle(5), Role(6), ManagerEmail(7)
                 // Start from row 1 (skip header)
                 const newUsers: User[] = [];
+                const usersToUpdate: { id: string; email: string; department: string; workLocation: string; jobTitle: string; role: UserRole; managerEmail: string }[] = [];
 
                 for (let i = 1; i < data.length; i++) {
                     const row: any = data[i];
@@ -502,17 +503,7 @@ export default function EmployeeManagementPage() {
                     const roleStr = String(row[6] || "").trim().toLowerCase();
                     const managerEmail = String(row[7] || "").trim().toLowerCase();
 
-                    // 1. Check Duplicate against DB
-                    const existsInDb = settings.users.some(u => u.email.toLowerCase() === email);
-                    // 2. Check Duplicate against Batch
-                    const existsInBatch = newUsers.some(u => u.email.toLowerCase() === email);
-
-                    if (existsInDb || existsInBatch) {
-                        skipCount++;
-                        continue;
-                    }
-
-                    // 2. Map Role
+                    // Map Role
                     let role: UserRole = 'employee';
                     const lowerRole = roleStr.toLowerCase();
                     if (lowerRole.includes('giám đốc') || lowerRole.includes('director')) role = 'director';
@@ -520,66 +511,107 @@ export default function EmployeeManagementPage() {
                     else if (lowerRole.includes('admin') || lowerRole.includes('quản trị')) role = 'admin';
                     else if (lowerRole.includes('human') || lowerRole.includes('nhân sự') || lowerRole.includes('hr')) role = 'hr';
 
-                    // 3. Store Manager Email temporarily (we'll resolve IDs after bulk insert)
-                    const managerEmailForLookup = managerEmail;
+                    // Check if user exists in DB
+                    const existingUser = settings.users.find(u => u.email.toLowerCase() === email);
 
-                    // 4. Generate Code
-                    maxCode++;
-                    const newCode = `NV_${String(maxCode).padStart(4, "0")}`;
+                    if (existingUser) {
+                        // Prepare for UPDATE
+                        usersToUpdate.push({
+                            id: existingUser.id,
+                            email: email,
+                            department: dept || existingUser.department,
+                            workLocation: location || existingUser.workLocation || '',
+                            jobTitle: jobTitleStr || existingUser.jobTitle || '',
+                            role: role,
+                            managerEmail: managerEmail
+                        });
+                        updateCount++;
+                    } else {
+                        // Check Duplicate against Batch
+                        const existsInBatch = newUsers.some(u => u.email.toLowerCase() === email);
+                        if (existsInBatch) continue;
 
-                    // 5. Add to Batch Array (without managerId for now, will update in pass 2)
-                    newUsers.push({
-                        id: "", // Placeholder
-                        name: toTitleCase(name),
-                        email: email,
-                        department: dept,
-                        workLocation: location,
-                        jobTitle: jobTitleStr,
-                        role: role,
-                        managerId: undefined, // Will be resolved after insert
-                        employeeCode: newCode,
-                        _tempManagerEmail: managerEmailForLookup // Temp field
-                    } as any);
+                        // Generate Code
+                        maxCode++;
+                        const newCode = `NV_${String(maxCode).padStart(4, "0")}`;
 
-                    successCount++;
+                        // Add to Batch Array (without managerId for now, will update in pass 2)
+                        newUsers.push({
+                            id: "", // Placeholder
+                            name: toTitleCase(name),
+                            email: email,
+                            department: dept,
+                            workLocation: location,
+                            jobTitle: jobTitleStr,
+                            role: role,
+                            managerId: undefined, // Will be resolved after insert
+                            employeeCode: newCode,
+                            _tempManagerEmail: managerEmail // Temp field
+                        } as any);
+
+                        successCount++;
+                    }
                 }
 
-                // Pass 1: Batch Insert (without complete manager info)
+                // Pass 1: Batch Insert NEW users
                 if (newUsers.length > 0) {
                     await addBulkUsers(newUsers);
+                }
 
-                    // Pass 2: Update manager IDs using fresh DB data
-                    // Fetch fresh user list directly from Supabase (not React state)
-                    const { data: freshUsers, error: fetchError } = await supabase
-                        .from('users')
-                        .select('id, email');
+                // Pass 2: Batch Update EXISTING users (department, jobTitle, role, workLocation)
+                if (usersToUpdate.length > 0) {
+                    for (const u of usersToUpdate) {
+                        await supabase
+                            .from('users')
+                            .update({
+                                department: u.department,
+                                work_location: u.workLocation,
+                                job_title: u.jobTitle,
+                                role: u.role
+                            })
+                            .eq('id', u.id);
+                    }
+                }
 
-                    if (!fetchError && freshUsers) {
-                        for (const newUser of newUsers) {
-                            const managerEmail = (newUser as any)._tempManagerEmail;
-                            if (managerEmail) {
-                                // Find manager by email in fresh DB data
-                                const manager = freshUsers.find((u: { id: string, email: string }) => u.email?.toLowerCase() === managerEmail);
-                                // Find the newly created user by email
-                                const createdUser = freshUsers.find((u: { id: string, email: string }) => u.email === newUser.email);
+                // Pass 3: Update manager IDs using fresh DB data (for both new and updated users)
+                const { data: freshUsers, error: fetchError } = await supabase
+                    .from('users')
+                    .select('id, email');
 
-                                if (manager && createdUser) {
-                                    // Direct Supabase update
-                                    await supabase
-                                        .from('users')
-                                        .update({ manager_id: manager.id })
-                                        .eq('id', createdUser.id);
-                                }
+                if (!fetchError && freshUsers) {
+                    // Update managers for new users
+                    for (const newUser of newUsers) {
+                        const managerEmail = (newUser as any)._tempManagerEmail;
+                        if (managerEmail) {
+                            const manager = freshUsers.find((fu: { id: string, email: string }) => fu.email?.toLowerCase() === managerEmail);
+                            const createdUser = freshUsers.find((fu: { id: string, email: string }) => fu.email === newUser.email);
+                            if (manager && createdUser) {
+                                await supabase
+                                    .from('users')
+                                    .update({ manager_id: manager.id })
+                                    .eq('id', createdUser.id);
                             }
                         }
-                        // Final refresh to show updated data
-                        await refreshData();
                     }
+                    // Update managers for updated users
+                    for (const upUser of usersToUpdate) {
+                        if (upUser.managerEmail) {
+                            const manager = freshUsers.find((fu: { id: string, email: string }) => fu.email?.toLowerCase() === upUser.managerEmail);
+                            if (manager) {
+                                await supabase
+                                    .from('users')
+                                    .update({ manager_id: manager.id })
+                                    .eq('id', upUser.id);
+                            }
+                        }
+                    }
+                    // Final refresh to show updated data
+                    await refreshData();
                 }
 
                 toast({
                     title: "Nhập dữ liệu hoàn tất",
-                    description: `Thêm mới: ${successCount}. Bỏ qua (trùng): ${skipCount}.`,
+                    description: `Thêm mới: ${successCount}. Cập nhật: ${updateCount}.`,
                 });
             } catch (error) {
                 console.error(error);

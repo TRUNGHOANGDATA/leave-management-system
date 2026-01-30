@@ -70,65 +70,19 @@ export default function ProfilePage() {
                 <CardContent className="space-y-6">
                     <div className="flex flex-col md:flex-row gap-6 items-start">
                         <div className="flex flex-col items-center gap-3">
-                            <div className="relative group">
-                                <Avatar className="h-24 w-24 border-2 border-white shadow-md">
-                                    <AvatarImage src={formData.avatarUrl} alt={currentUser.name} />
-                                    <AvatarFallback className="text-2xl">{currentUser.name.charAt(0)}</AvatarFallback>
-                                </Avatar>
-                                <label htmlFor="avatar-upload" className="absolute inset-0 flex items-center justify-center bg-black/40 text-white opacity-0 group-hover:opacity-100 transition-opacity rounded-full cursor-pointer">
-                                    <span className="text-xs font-medium">Thay đổi</span>
-                                </label>
-                                <input
-                                    id="avatar-upload"
-                                    type="file"
-                                    accept="image/*"
-                                    className="hidden"
-                                    onChange={async (e) => {
-                                        const file = e.target.files?.[0];
-                                        if (!file) return;
-
-                                        // Upload logic
-                                        const { supabase } = await import('@/lib/supabaseClient'); // Dynamic import to avoid top-level issues if any
-                                        // Get extension
-                                        const fileExt = file.name.split('.').pop();
-                                        const fileName = `${currentUser.id}-${Date.now()}.${fileExt}`;
-
-                                        // Show loading/preview
-                                        const previewUrl = URL.createObjectURL(file);
-                                        setFormData(prev => ({ ...prev, avatarUrl: previewUrl }));
-
-                                        try {
-                                            const { data, error } = await supabase.storage
-                                                .from('avatars')
-                                                .upload(fileName, file, { upsert: true });
-
-                                            if (error) throw error;
-
-                                            const { data: { publicUrl } } = supabase.storage
-                                                .from('avatars')
-                                                .getPublicUrl(fileName);
-
-                                            setFormData(prev => ({ ...prev, avatarUrl: publicUrl }));
-                                            toast({ title: "Upload thành công", description: "Ảnh đại diện mới đã được tải lên." });
-                                        } catch (err: any) {
-                                            console.error(err);
-                                            toast({
-                                                variant: "destructive",
-                                                title: "Lỗi Upload",
-                                                description: err.message || "Không thể tải ảnh. Hãy kiểm tra lại kết nối hoặc quyền truy cập."
-                                            });
-                                        }
-                                    }}
-                                />
-                            </div>
+                            <Avatar className="h-24 w-24 border-2 border-white shadow-md">
+                                <AvatarImage src={formData.avatarUrl} alt={currentUser.name} />
+                                <AvatarFallback className="text-2xl">{currentUser.name.charAt(0)}</AvatarFallback>
+                            </Avatar>
                             <div className="w-full max-w-xs text-center">
-                                <p className="text-xs text-slate-500 mb-1">Click vào ảnh để thay đổi</p>
-                                {/* Legacy URL input hidden or kept as backup? Kept is fine */}
+                                <p className="text-xs text-slate-500 mb-2">
+                                    Nhập URL ảnh từ dịch vụ lưu trữ (ImgBB, Cloudinary, Google Drive...)
+                                </p>
                                 <Input
                                     value={formData.avatarUrl}
                                     onChange={(e) => setFormData(prev => ({ ...prev, avatarUrl: e.target.value }))}
-                                    className="h-8 text-xs mt-1"
-                                    placeholder="Hoặc nhập URL..."
+                                    className="h-9 text-sm"
+                                    placeholder="https://example.com/avatar.jpg"
                                 />
                             </div>
                         </div>
