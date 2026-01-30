@@ -348,20 +348,29 @@ export default function Dashboard() {
             {/* Manager Section: Approved Requests (for cancellation if needed) */}
             {currentUser && ['manager', 'director', 'admin'].includes(currentUser.role) && approvedSubordinateRequests.length > 0 && (
                 <div className="space-y-4">
-                    <h2 className="text-xl font-bold text-slate-900">Đã duyệt ({approvedSubordinateRequests.length})</h2>
-                    <p className="text-sm text-slate-500">Nếu nhân viên muốn huỷ đơn đã duyệt, bạn có thể huỷ ở đây.</p>
+                    <div className="flex justify-between items-center">
+                        <div>
+                            <h2 className="text-xl font-bold text-slate-900">Đã duyệt ({approvedSubordinateRequests.length})</h2>
+                            <p className="text-sm text-slate-500">Nếu nhân viên muốn huỷ đơn đã duyệt, bạn có thể huỷ ở đây.</p>
+                        </div>
+                        <Button variant="ghost" asChild className="text-blue-600 hover:text-blue-700 hover:bg-blue-50">
+                            <Link href="/dashboard/history?view=manager&filter=approved">
+                                Xem tất cả <ArrowRight className="h-4 w-4 ml-1" />
+                            </Link>
+                        </Button>
+                    </div>
                     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                        {approvedSubordinateRequests.map(req => {
+                        {approvedSubordinateRequests.slice(0, 3).map(req => {
                             const requester = settings.users?.find(u => u.id === req.userId);
                             return (
-                                <Card key={req.id} className="border-l-4 border-l-green-400 shadow-sm">
+                                <Card key={req.id} className="border-l-4 border-l-green-400 shadow-sm transition-all hover:shadow-md">
                                     <CardHeader className="pb-2">
                                         <div className="flex justify-between items-start">
                                             <div>
-                                                <CardTitle className="text-sm font-bold text-slate-900">{requester?.name}</CardTitle>
+                                                <CardTitle className="text-sm font-bold text-slate-900 truncate max-w-[150px]" title={requester?.name}>{requester?.name}</CardTitle>
                                                 <CardDescription className="text-xs">{req.type}</CardDescription>
                                             </div>
-                                            <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full font-medium">Đã duyệt</span>
+                                            <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full font-medium whitespace-nowrap">Đã duyệt</span>
                                         </div>
                                     </CardHeader>
                                     <CardContent className="pt-0">

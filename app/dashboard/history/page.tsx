@@ -42,13 +42,39 @@ const CATEGORIES = [
 ];
 
 function HistoryContent() {
-    const { settings, cancelLeaveRequest } = useApp();
+    const { settings, currentUser, cancelLeaveRequest } = useApp();
     const searchParams = useSearchParams();
     const filterStatus = searchParams.get("filter");
+    const viewMode = searchParams.get("view"); // 'personal' | 'manager'
     const [filterCategory, setFilterCategory] = useState("all");
 
     const sortedHistory = useMemo(() => {
-        return [...settings.leaveRequests]
+        let data = [...settings.leaveRequests];
+
+        // 1. Permission Filter
+        if (viewMode === 'manager') {
+            // Only allow if manager/director/admin
+            if (!currentUser || !['manager', 'director', 'admin'].includes(currentUser.role)) {
+                data = data.filter(item => item.userId === currentUser?.id);
+            } else {
+                // Show requests that are NOT mine (or all? usually subordinates)
+                // For now, let's show ALL requests except my own for clarity, or just ALL.
+                // Matching Dashboard logic: "approvedSubordinateRequests"
+                // Let's filter to requests where I am the manager OR I am admin
+                if (currentUser.role === 'admin' || currentUser.role === 'director') {
+                    // See all
+                } else {
+                    // Manager: See only subordinates
+                    const subordinateIds = settings.users.filter(u => u.managerId === currentUser.id).map(u => u.id);
+                    data = data.filter(item => subordinateIds.includes(item.userId));
+                }
+            }
+        } else {
+            // Personal View (Default)
+            data = data.filter(item => item.userId === currentUser?.id);
+        }
+
+        return data
             .filter(item => filterStatus ? item.status === filterStatus : true)
             .filter(item => {
                 if (filterCategory === "all") return true;
@@ -60,7 +86,7 @@ function HistoryContent() {
                 return true;
             })
             .sort((a, b) => new Date(b.fromDate).getTime() - new Date(a.fromDate).getTime());
-    }, [settings.leaveRequests, filterStatus, filterCategory]);
+    }, [settings.leaveRequests, filterStatus, filterCategory, viewMode, currentUser, settings.users]);
 
     return (
         <div className="container py-10 space-y-8">

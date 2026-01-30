@@ -70,7 +70,7 @@ serve(async (req) => {
         status: isApproved ? "ĐÃ DUYỆT (APPROVED)" : "TỪ CHỐI (REJECTED)",
         statusText: isApproved ? "ĐƯỢC DUYỆT" : "BỊ TỪ CHỐI",
         statusBadge: isApproved ? "ĐÃ DUYỆT" : "TỪ CHỐI",
-        statusStyle: isApproved ? "color: #16a34a; font-weight: bold;" : "color: #dc2626; font-weight: bold;",
+        statusStyle: isApproved ? "color: #16a34a; font-weight: bold; font-family: Arial, sans-serif;" : "color: #dc2626; font-weight: bold; font-family: Arial, sans-serif;",
       };
       console.log("[Email] Status normalized:", { rawStatus, isApproved, displayStatus: enrichedData.status });
     }
