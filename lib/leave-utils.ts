@@ -9,6 +9,8 @@ export const calculateEntitlement = (user: any, targetDate: Date = new Date()) =
     const currentYear = targetDate.getFullYear();
     const currentMonth = targetDate.getMonth(); // 0-11
 
+    if (!user) return 0; // Guard against null user
+
     // Default to 12 if no startDate
     if (!user.start_date && !user.startDate && !user.createdAt) return 12;
 
