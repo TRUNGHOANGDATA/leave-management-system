@@ -23,7 +23,7 @@ export default function ReportsPage() {
     const [calendarMonth, setCalendarMonth] = useState(new Date());
     const [exportFromDate, setExportFromDate] = useState(format(startOfMonth(new Date()), 'yyyy-MM-dd'));
     const [exportToDate, setExportToDate] = useState(format(endOfMonth(new Date()), 'yyyy-MM-dd'));
-    const [selectedDay, setSelectedDay] = useState<{ date: Date; leaves: { name: string; department: string }[] } | null>(null);
+    const [selectedDay, setSelectedDay] = useState<{ date: Date; leaves: { name: string; department: string; fromDate: string; toDate: string }[] } | null>(null);
 
     const filteredData = useMemo(() => {
         if (!settings.users || !currentUser) return { users: [], requests: [] };
@@ -101,7 +101,12 @@ export default function ReportsPage() {
             return isWithinInterval(day, { start: from, end: to });
         }).map(r => {
             const user = filteredData.users.find(u => u.id === r.userId);
-            return { name: user?.name || 'Unknown', department: user?.department || '' };
+            return {
+                name: user?.name || 'Unknown',
+                department: user?.department || '',
+                fromDate: r.fromDate,
+                toDate: r.toDate
+            };
         });
     };
 
@@ -343,9 +348,14 @@ export default function ReportsPage() {
                     </DialogHeader>
                     <div className="space-y-2 max-h-[300px] overflow-auto">
                         {selectedDay?.leaves.map((l, i) => (
-                            <div key={i} className="flex justify-between items-center p-2 bg-slate-50 rounded-md border">
-                                <span className="font-medium text-slate-800">{l.name}</span>
-                                <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded">{l.department}</span>
+                            <div key={i} className="p-3 bg-slate-50 rounded-md border space-y-1">
+                                <div className="flex justify-between items-center">
+                                    <span className="font-medium text-slate-800">{l.name}</span>
+                                    <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded">{l.department}</span>
+                                </div>
+                                <div className="text-xs text-slate-500">
+                                    Nghỉ từ <span className="font-medium text-slate-700">{format(parseISO(l.fromDate), 'dd/MM/yyyy')}</span> đến <span className="font-medium text-slate-700">{format(parseISO(l.toDate), 'dd/MM/yyyy')}</span>
+                                </div>
                             </div>
                         ))}
                     </div>
