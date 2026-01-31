@@ -152,34 +152,22 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     // Fetch data from Supabase
     const refreshData = async () => {
         try {
-            // Fetch Users
-            const { data: usersData, error: usersError } = await supabase
-                .from('users')
-                .select('*');
+            // Fetch in Parallel (Performance Optimization)
+            const [
+                { data: usersData, error: usersError },
+                { data: requestsData, error: requestsError },
+                { data: notifData, error: notifError },
+                { data: holidaysData, error: holidaysError }
+            ] = await Promise.all([
+                supabase.from('users').select('*'),
+                supabase.from('leave_requests').select('*'),
+                supabase.from('notifications').select('*').order('created_at', { ascending: false }),
+                supabase.from('public_holidays').select('*').order('date', { ascending: true })
+            ]);
 
             if (usersError) throw usersError;
-
-            // Fetch Requests
-            const { data: requestsData, error: requestsError } = await supabase
-                .from('leave_requests')
-                .select('*');
-
             if (requestsError) throw requestsError;
-
-            // Fetch Notifications
-            const { data: notifData, error: notifError } = await supabase
-                .from('notifications')
-                .select('*')
-                .order('created_at', { ascending: false });
-
             if (notifError) throw notifError;
-
-            // Fetch Holidays
-            const { data: holidaysData, error: holidaysError } = await supabase
-                .from('public_holidays')
-                .select('*')
-                .order('date', { ascending: true });
-
             if (holidaysError) console.error("Error fetching holidays:", holidaysError);
 
             // Map Users
