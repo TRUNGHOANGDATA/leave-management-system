@@ -97,9 +97,15 @@ export default function Dashboard() {
             .slice(0, 3);
     }, [settings.leaveRequests, currentUser]);
 
-    const annualLeaveTotal = 12;
-    const leaveLeft = annualLeaveTotal - annualLeaveUsed;
-    const leaveLeftPercent = Math.round((leaveLeft / annualLeaveTotal) * 100);
+    // Use Dynamic Balance from AppContext (calculated in refreshData)
+    const leaveLeft = currentUser?.annualLeaveRemaining || 0;
+
+    // Entitlement = Remaining + Used. This correctly reflects "Accrued" amount.
+    const currentEntitlement = leaveLeft + annualLeaveUsed;
+
+    const leaveLeftPercent = currentEntitlement > 0
+        ? Math.round((leaveLeft / currentEntitlement) * 100)
+        : 0;
 
     // Helper for status badge style reuse (or simple inline)
     const getStatusStyle = (status: string) => {
@@ -212,7 +218,7 @@ export default function Dashboard() {
                     <CardContent className="relative z-10">
                         <div className="flex items-baseline justify-between mb-4">
                             <span className="text-5xl font-bold">{leaveLeft}</span>
-                            <span className="text-white/80">/ {annualLeaveTotal} ngày</span>
+                            <span className="text-white/80">/ {currentEntitlement} ngày</span>
                         </div>
                         <div className="space-y-1">
                             <div className="flex justify-between text-xs text-white/80 mb-1">
