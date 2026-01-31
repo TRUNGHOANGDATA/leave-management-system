@@ -51,29 +51,14 @@ export default function SettingsPage() {
     // Combine holidays for display
     const getHolidaysForYear = (year: number) => {
         const holidays: { date: Date; name: string; isCustom?: boolean; dateStr?: string }[] = [];
-        const customDatesMap = new Set<string>();
 
+        // Only get from settings.customHolidays (which are from DB)
         settings.customHolidays.forEach(h => {
             const date = new Date(h.date);
+            // Filter by year if needed, or show all. 
+            // Current year view usually expects current + next year.
             if (date.getFullYear() === year) {
                 holidays.push({ date, name: h.name, isCustom: true, dateStr: h.date });
-                customDatesMap.add(h.date);
-            }
-        });
-
-        FIXED_HOLIDAYS.forEach(h => {
-            const date = new Date(year, h.month, h.date);
-            const dateStr = format(date, "yyyy-MM-dd");
-
-            if (!customDatesMap.has(dateStr)) {
-                holidays.push({ date, name: h.name, isCustom: false });
-            }
-        });
-
-        const lunarDates = LUNAR_HOLIDAYS_SOLAR[year] || [];
-        lunarDates.forEach(dateStr => {
-            if (!customDatesMap.has(dateStr)) {
-                holidays.push({ date: new Date(dateStr), name: "Nghỉ Lễ/Tết (Âm lịch)", isCustom: false });
             }
         });
 
@@ -314,12 +299,11 @@ export default function SettingsPage() {
                                                 <TableCell>
                                                     <div className="flex items-center gap-2">
                                                         <span>{holiday.name}</span>
-                                                        {holiday.isCustom && <span className="px-1.5 py-0.5 text-[10px] bg-blue-50 text-blue-600 border border-blue-100 rounded-md font-medium uppercase tracking-wider">Custom</span>}
                                                     </div>
                                                 </TableCell>
                                                 <TableCell className="text-right">
                                                     <div className="flex justify-end gap-1 opacity-100 sm:opacity-0 hover:opacity-100 transition-opacity">
-                                                        {holiday.isCustom && holiday.dateStr && (
+                                                        {holiday.dateStr && (
                                                             <>
                                                                 <Button variant="ghost" size="icon" className="h-8 w-8 text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-full" onClick={() => openEditDialog(holiday)}>
                                                                     <Pencil className="h-3.5 w-3.5" />
