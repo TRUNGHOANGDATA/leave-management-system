@@ -23,6 +23,8 @@ export default function ReportsPage() {
     const [calendarMonth, setCalendarMonth] = useState(new Date());
     const [exportFromDate, setExportFromDate] = useState(format(startOfMonth(new Date()), 'yyyy-MM-dd'));
     const [exportToDate, setExportToDate] = useState(format(endOfMonth(new Date()), 'yyyy-MM-dd'));
+    const [chartFromDate, setChartFromDate] = useState(format(startOfMonth(new Date()), 'yyyy-MM-dd'));
+    const [chartToDate, setChartToDate] = useState(format(endOfMonth(new Date()), 'yyyy-MM-dd'));
     const [selectedDay, setSelectedDay] = useState<{ date: Date; leaves: { name: string; department: string; fromDate: string; toDate: string }[] } | null>(null);
 
     const filteredData = useMemo(() => {
@@ -48,6 +50,16 @@ export default function ReportsPage() {
     const approvedRequests = settings.leaveRequests.filter(r => r.status === 'approved').length;
     const rejectedRequests = settings.leaveRequests.filter(r => r.status === 'rejected').length;
 
+    // Chart filtered data
+    const chartFilteredRequests = useMemo(() => {
+        const from = parseISO(chartFromDate);
+        const to = parseISO(chartToDate);
+        return filteredData.requests.filter(r => {
+            const rFrom = parseISO(r.fromDate);
+            return rFrom >= from && rFrom <= to;
+        });
+    }, [filteredData.requests, chartFromDate, chartToDate]);
+
     // Monthly Trend Data
     const monthlyTrendData = useMemo(() => {
         const months: { [key: string]: number } = {};
@@ -64,28 +76,70 @@ export default function ReportsPage() {
         return Object.entries(months).map(([name, value]) => ({ name, value }));
     }, [filteredData.requests]);
 
-    // Leave Type Distribution
+    // Leave Type Distribution (filtered)
     const leaveTypeData = useMemo(() => {
         const types: { [key: string]: number } = { 'Phép năm': 0, 'Không lương': 0, 'Theo chế độ': 0 };
-        filteredData.requests.forEach(r => {
+        chartFilteredRequests.forEach(r => {
             types['Phép năm'] += r.daysAnnual || 0;
             types['Không lương'] += r.daysUnpaid || 0;
             types['Theo chế độ'] += r.daysExempt || 0;
         });
         return Object.entries(types).filter(([_, v]) => v > 0).map(([name, value]) => ({ name, value }));
-    }, [filteredData.requests]);
+    }, [chartFilteredRequests]);
 
-    // Department Comparison
+    // Department Comparison (filtered)
     const deptData = useMemo(() => {
         const depts: { [key: string]: number } = {};
-        filteredData.requests.forEach(r => {
+        chartFilteredRequests.forEach(r => {
             const user = settings.users.find(u => u.id === r.userId);
             if (user) {
                 depts[user.department] = (depts[user.department] || 0) + (r.duration || 1);
             }
         });
         return Object.entries(depts).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value).slice(0, 5);
-    }, [filteredData.requests, settings.users]);
+    }, [chartFilteredRequests, settings.users]);
+
+    // Top 5 Leave Takers (filtered)
+    const topLeaveTakers = useMemo(() => {
+        const userDays: { [userId: string]: number } = {};
+        chartFilteredRequests.forEach(r => {
+            userDays[r.userId] = (userDays[r.userId] || 0) + (r.duration || 1);
+        });
+        return Object.entries(userDays)
+            .map(([userId, days]) => {
+                const user = settings.users.find(u => u.id === userId);
+                return { name: user?.name || 'Unknown', department: user?.department || '', days };
+            })
+            .sort((a, b) => b.days - a.days)
+            .slice(0, 5);
+    }, [chartFilteredRequests, settings.users]);
+
+    // Approval Rate
+    const approvalRateData = useMemo(() => {
+        const from = parseISO(chartFromDate);
+        const to = parseISO(chartToDate);
+        const inRange = settings.leaveRequests.filter(r => {
+            const rFrom = parseISO(r.fromDate);
+            return rFrom >= from && rFrom <= to && r.status !== 'pending';
+        });
+        const approved = inRange.filter(r => r.status === 'approved').length;
+        const rejected = inRange.filter(r => r.status === 'rejected').length;
+        return [{ name: 'Đã duyệt', value: approved }, { name: 'Từ chối', value: rejected }].filter(d => d.value > 0);
+    }, [settings.leaveRequests, chartFromDate, chartToDate]);
+
+    // Weekday Analysis
+    const weekdayData = useMemo(() => {
+        const days = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
+        const counts = [0, 0, 0, 0, 0, 0, 0];
+        chartFilteredRequests.forEach(r => {
+            const start = parseISO(r.fromDate);
+            const end = parseISO(r.toDate);
+            eachDayOfInterval({ start, end }).forEach(d => {
+                counts[d.getDay()]++;
+            });
+        });
+        return days.map((name, i) => ({ name, value: counts[i] }));
+    }, [chartFilteredRequests]);
 
     // Calendar Data
     const calendarDays = useMemo(() => {
@@ -247,51 +301,107 @@ export default function ReportsPage() {
 
             {/* Tab: Charts */}
             {activeTab === 'charts' && (
-                <div className="grid gap-6 md:grid-cols-2 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                    {/* Date Filter */}
                     <Card>
-                        <CardHeader><CardTitle>Xu hướng nghỉ phép (6 tháng gần nhất)</CardTitle></CardHeader>
-                        <CardContent className="h-[300px]">
-                            <ResponsiveContainer width="100%" height="100%">
-                                <LineChart data={monthlyTrendData}>
-                                    <CartesianGrid strokeDasharray="3 3" />
-                                    <XAxis dataKey="name" />
-                                    <YAxis allowDecimals={false} />
-                                    <Tooltip />
-                                    <Line type="monotone" dataKey="value" stroke="#3b82f6" strokeWidth={2} name="Số đơn" />
-                                </LineChart>
-                            </ResponsiveContainer>
+                        <CardContent className="pt-4">
+                            <div className="flex flex-wrap gap-4 items-end">
+                                <div>
+                                    <label className="text-sm font-medium text-slate-700">Từ ngày</label>
+                                    <Input type="date" value={chartFromDate} onChange={e => setChartFromDate(e.target.value)} className="w-[160px]" />
+                                </div>
+                                <div>
+                                    <label className="text-sm font-medium text-slate-700">Đến ngày</label>
+                                    <Input type="date" value={chartToDate} onChange={e => setChartToDate(e.target.value)} className="w-[160px]" />
+                                </div>
+                                <p className="text-sm text-slate-500">Dữ liệu biểu đồ sẽ được lọc theo khoảng thời gian này</p>
+                            </div>
                         </CardContent>
                     </Card>
 
-                    <Card>
-                        <CardHeader><CardTitle>Phân bổ theo loại nghỉ</CardTitle></CardHeader>
-                        <CardContent className="h-[300px]">
-                            <ResponsiveContainer width="100%" height="100%">
-                                <PieChart>
-                                    <Pie data={leaveTypeData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} label>
-                                        {leaveTypeData.map((_, index) => <Cell key={index} fill={COLORS[index % COLORS.length]} />)}
-                                    </Pie>
-                                    <Tooltip />
-                                    <Legend />
-                                </PieChart>
-                            </ResponsiveContainer>
-                        </CardContent>
-                    </Card>
+                    <div className="grid gap-6 md:grid-cols-2">
+                        {/* Leave Type Pie */}
+                        <Card>
+                            <CardHeader><CardTitle>Phân bổ theo loại nghỉ</CardTitle></CardHeader>
+                            <CardContent className="h-[280px]">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <PieChart>
+                                        <Pie data={leaveTypeData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={70} label>
+                                            {leaveTypeData.map((_, index) => <Cell key={index} fill={COLORS[index % COLORS.length]} />)}
+                                        </Pie>
+                                        <Tooltip /><Legend />
+                                    </PieChart>
+                                </ResponsiveContainer>
+                            </CardContent>
+                        </Card>
 
-                    <Card className="md:col-span-2">
-                        <CardHeader><CardTitle>Top phòng ban nghỉ nhiều nhất</CardTitle></CardHeader>
-                        <CardContent className="h-[300px]">
-                            <ResponsiveContainer width="100%" height="100%">
-                                <BarChart data={deptData} layout="vertical">
-                                    <CartesianGrid strokeDasharray="3 3" />
-                                    <XAxis type="number" allowDecimals={false} />
-                                    <YAxis dataKey="name" type="category" width={150} />
-                                    <Tooltip />
-                                    <Bar dataKey="value" fill="#3b82f6" name="Số ngày nghỉ" />
-                                </BarChart>
-                            </ResponsiveContainer>
-                        </CardContent>
-                    </Card>
+                        {/* Approval Rate Donut */}
+                        <Card>
+                            <CardHeader><CardTitle>Tỷ lệ duyệt đơn</CardTitle></CardHeader>
+                            <CardContent className="h-[280px]">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <PieChart>
+                                        <Pie data={approvalRateData} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={40} outerRadius={70} label>
+                                            <Cell fill="#10b981" />
+                                            <Cell fill="#ef4444" />
+                                        </Pie>
+                                        <Tooltip /><Legend />
+                                    </PieChart>
+                                </ResponsiveContainer>
+                            </CardContent>
+                        </Card>
+
+                        {/* Weekday Analysis */}
+                        <Card>
+                            <CardHeader><CardTitle>Thống kê theo ngày trong tuần</CardTitle></CardHeader>
+                            <CardContent className="h-[280px]">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <BarChart data={weekdayData}>
+                                        <CartesianGrid strokeDasharray="3 3" />
+                                        <XAxis dataKey="name" />
+                                        <YAxis allowDecimals={false} />
+                                        <Tooltip />
+                                        <Bar dataKey="value" fill="#8b5cf6" name="Số ngày nghỉ" />
+                                    </BarChart>
+                                </ResponsiveContainer>
+                            </CardContent>
+                        </Card>
+
+                        {/* Top 5 Leave Takers */}
+                        <Card>
+                            <CardHeader><CardTitle>Top 5 nhân viên nghỉ nhiều nhất</CardTitle></CardHeader>
+                            <CardContent>
+                                <div className="space-y-2">
+                                    {topLeaveTakers.length === 0 && <p className="text-sm text-slate-500">Không có dữ liệu</p>}
+                                    {topLeaveTakers.map((t, i) => (
+                                        <div key={i} className="flex items-center justify-between p-2 bg-slate-50 rounded-md border">
+                                            <div>
+                                                <span className="font-medium text-slate-800">{i + 1}. {t.name}</span>
+                                                <span className="text-xs text-slate-500 ml-2">({t.department})</span>
+                                            </div>
+                                            <span className="text-sm font-bold text-orange-600">{t.days} ngày</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </CardContent>
+                        </Card>
+
+                        {/* Dept Comparison */}
+                        <Card className="md:col-span-2">
+                            <CardHeader><CardTitle>Top phòng ban nghỉ nhiều nhất</CardTitle></CardHeader>
+                            <CardContent className="h-[280px]">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <BarChart data={deptData} layout="vertical">
+                                        <CartesianGrid strokeDasharray="3 3" />
+                                        <XAxis type="number" allowDecimals={false} />
+                                        <YAxis dataKey="name" type="category" width={150} />
+                                        <Tooltip />
+                                        <Bar dataKey="value" fill="#3b82f6" name="Số ngày nghỉ" />
+                                    </BarChart>
+                                </ResponsiveContainer>
+                            </CardContent>
+                        </Card>
+                    </div>
                 </div>
             )}
 
