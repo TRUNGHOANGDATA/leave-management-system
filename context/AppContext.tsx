@@ -22,6 +22,7 @@ export interface User {
     managerId?: string; // ID of the manager who approves requests
     avatarUrl?: string;
     employeeCode?: string; // Custom Code: NV_0001
+    startDate?: string; // Date of joining
     workLocation?: string;
     jobTitle?: string;
     phone?: string;
@@ -180,6 +181,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
                 managerId: u.manager_id,
                 avatarUrl: u.avatar_url,
                 employeeCode: u.employee_code || undefined,
+                startDate: u.start_date || u.created_at, // Use start_date or fallback to created_at
                 workLocation: u.work_location || undefined,
                 jobTitle: u.job_title || undefined
             }));

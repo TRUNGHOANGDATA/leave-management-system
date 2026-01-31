@@ -145,29 +145,61 @@ export default function ReportsPage() {
         return Object.entries(months).map(([name, value]) => ({ name, value }));
     }, [chartFilteredRequests]);
 
-    // Employees with low leave balance (< 5 days)
-    const lowBalanceEmployees = useMemo(() => {
-        return settings.users
-            .filter(u => (u.annualLeaveRemaining || 0) < 5 && u.role !== 'admin')
-            .sort((a, b) => (a.annualLeaveRemaining || 0) - (b.annualLeaveRemaining || 0))
-            .slice(0, 5)
-            .map(u => ({
-                name: u.name,
-                department: u.department,
-                remaining: u.annualLeaveRemaining || 0
-            }));
-    }, [settings.users]);
+    // Calculate Entitlement Helper
+    const calculateEntitlement = (user: any) => {
+        const currentYear = new Date().getFullYear();
+        if (!user.startDate) return 12; // Default to 12 if no data
 
-    // Leave by location
-    const locationData = useMemo(() => {
-        const locations: { [key: string]: number } = {};
-        chartFilteredRequests.forEach(r => {
-            const user = settings.users.find(u => u.id === r.userId);
-            const loc = user?.workLocation || 'Không xác định';
-            locations[loc] = (locations[loc] || 0) + (r.duration || 1);
-        });
-        return Object.entries(locations).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value);
-    }, [chartFilteredRequests, settings.users]);
+        const start = parseISO(user.startDate);
+        const joinYear = start.getFullYear();
+
+        if (joinYear < currentYear) return 12;
+        if (joinYear > currentYear) return 0; // Future employee?
+
+        // Joined this year: Pro-rated
+        // Example: Join April (month 3 0-indexed) => 12 - 3 = 9 months left?
+        // Logic: 12 months - joinedMonthIndex + 1 (if join start of month)
+        // Simple logic: 1 day per month working.
+        // If join Jan 1st -> 12. If join Dec 1st -> 1.
+        // Month is 0-indexed in JS (Jan=0).
+        // Months remaining = 11 - start.getMonth() + 1 = 12 - start.getMonth()
+        // Wait, if join Jan (0) => 12 - 0 = 12. Correct.
+        // If join Dec (11) => 12 - 11 = 1. Correct.
+        // Note: This assumes joining at start of month. Strict logic uses actual date but this is good heuristic.
+        const monthsRemaining = 12 - start.getMonth();
+        return Math.max(0, monthsRemaining);
+    };
+
+    // Employees with low leave balance (< 5 days) - DYNAMIC CALCULATION
+    const lowBalanceEmployees = useMemo(() => {
+        const currentYear = new Date().getFullYear();
+
+        return settings.users
+            .filter(u => u.role !== 'admin')
+            .map(u => {
+                const maxLeave = calculateEntitlement(u);
+
+                // Calculate used days in current calendar year
+                const used = settings.leaveRequests
+                    .filter(r =>
+                        r.userId === u.id &&
+                        r.status === 'approved' &&
+                        parseISO(r.fromDate).getFullYear() === currentYear
+                    )
+                    .reduce((sum, r) => sum + (r.daysAnnual || 0), 0);
+
+                return {
+                    name: u.name,
+                    department: u.department,
+                    remaining: maxLeave - used,
+                    max: maxLeave,
+                    used: used
+                };
+            })
+            .filter(u => u.remaining < 5)
+            .sort((a, b) => a.remaining - b.remaining)
+            .slice(0, 5);
+    }, [settings.users, settings.leaveRequests]);
 
     // Weekday Analysis - only show working days based on workSchedule
     const weekdayData = useMemo(() => {
@@ -480,6 +512,9 @@ export default function ReportsPage() {
                                             <div>
                                                 <span className="font-medium text-slate-800">{e.name}</span>
                                                 <span className="text-xs text-slate-500 ml-2">({e.department})</span>
+                                                <div className="text-[10px] text-slate-400 mt-0.5">
+                                                    Tổng quy định: <span className="font-medium">{e.max}</span> • Đã nghỉ: <span className="font-medium">{e.used}</span>
+                                                </div>
                                             </div>
                                             <span className={`text-sm font-bold ${e.remaining <= 2 ? 'text-red-600' : 'text-orange-600'}`}>
                                                 {e.remaining} ngày còn lại
@@ -487,21 +522,6 @@ export default function ReportsPage() {
                                         </div>
                                     ))}
                                 </div>
-                            </CardContent>
-                        </Card>
-
-                        {/* Leave by Location */}
-                        <Card>
-                            <CardHeader><CardTitle>Nghỉ phép theo địa điểm</CardTitle></CardHeader>
-                            <CardContent className="h-[280px]">
-                                <ResponsiveContainer width="100%" height="100%">
-                                    <PieChart>
-                                        <Pie data={locationData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={70} label>
-                                            {locationData.map((_, index) => <Cell key={index} fill={COLORS[index % COLORS.length]} />)}
-                                        </Pie>
-                                        <Tooltip /><Legend />
-                                    </PieChart>
-                                </ResponsiveContainer>
                             </CardContent>
                         </Card>
                     </div>
