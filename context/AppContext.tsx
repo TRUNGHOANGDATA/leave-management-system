@@ -412,6 +412,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
                 avatar_url: user.avatarUrl,
                 employee_code: newCode,
                 work_location: user.workLocation,
+                start_date: user.startDate, // Add start_date
                 job_title: user.jobTitle
             });
             if (error) console.error("Add User Error", error);
@@ -430,6 +431,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
                 avatar_url: user.avatarUrl,
                 employee_code: user.employeeCode,
                 work_location: user.workLocation,
+                start_date: user.startDate, // Add start_date
                 job_title: user.jobTitle
             }));
 
@@ -456,6 +458,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
                 avatar_url: user.avatarUrl,
                 work_location: user.workLocation,
                 job_title: user.jobTitle,
+                start_date: user.startDate, // Add start_date
                 phone: user.phone
                 // employee_code: user.employeeCode // Usually don't update code, but can if needed
             }).eq('id', user.id);
