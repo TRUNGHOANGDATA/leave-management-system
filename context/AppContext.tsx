@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
+import { calculateEntitlement } from "@/lib/leave-utils";
 
 export type WorkScheduleType = "mon-fri" | "mon-sat" | "mon-sat-morning";
 
@@ -152,56 +153,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
 
     // --- Helper: Calculate Annual Leave Entitlement (Anniversary-Based) ---
-    // Logic:
-    // - Leave does NOT carry over between years.
-    // - Before 1-year anniversary: Accrue 1 day per month worked in the CURRENT year.
-    // - After 1-year anniversary: Full 12 days for the current year.
-    const calculateEntitlement = (user: any) => {
-        const now = new Date();
-        const currentYear = now.getFullYear();
-        const currentMonth = now.getMonth(); // 0-11
-        const currentDay = now.getDate();
+    // Moved to lib/leave-utils.ts for shared use
 
-        // Default to 12 if no startDate
-        if (!user.start_date && !user.startDate) return 12;
-
-        let dateStr = user.start_date || user.startDate;
-        let start = new Date(dateStr);
-
-        // Try parsing DD/MM/YYYY if standard parse invalid
-        if (isNaN(start.getTime()) && typeof dateStr === 'string' && dateStr.includes('/')) {
-            const parts = dateStr.split('/');
-            if (parts.length === 3) {
-                start = new Date(`${parts[2]}-${parts[1]}-${parts[0]}`);
-            }
-        }
-
-        if (isNaN(start.getTime())) return 12; // Invalid date fallback
-
-        // Calculate Anniversary Date (1 year after start)
-        const anniversaryDate = new Date(start);
-        anniversaryDate.setFullYear(anniversaryDate.getFullYear() + 1);
-
-        // If current date is on or after the 1-year anniversary: Full 12 days
-        if (now >= anniversaryDate) {
-            return 12;
-        }
-
-        // Before anniversary: Accrue 1 day per month worked in the CURRENT year
-        // Example: Start 10/5/2025. Current Jan 2026. Anniversary 10/5/2026.
-        // Months worked in 2026 so far = 1 (January). Entitlement = 1 day.
-
-        const startYearInCurrent = start.getFullYear() === currentYear;
-        const startMonthInYear = startYearInCurrent ? start.getMonth() : 0; // Start from Jan if joined in a previous year
-
-        // If start is in the future relative to current month in current year
-        if (startYearInCurrent && start.getMonth() > currentMonth) {
-            return 0; // Haven't started yet this year
-        }
-
-        const monthsWorkedThisYear = currentMonth - startMonthInYear + 1;
-        return Math.min(12, Math.max(0, monthsWorkedThisYear));
-    };
 
     // Calculate Real-time Balance
     // Balance = Entitlement - Approved Leave Days (Annual Type)

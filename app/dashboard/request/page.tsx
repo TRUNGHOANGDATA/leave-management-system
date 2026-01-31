@@ -29,6 +29,7 @@ import { useRouter } from 'next/navigation';
 import { DateRange } from "react-day-picker";
 import { isHoliday, isWorkDay } from "@/lib/holidays";
 import { useApp } from "@/context/AppContext";
+import { calculateEntitlement } from "@/lib/leave-utils";
 
 export default function LeaveRequestPage() {
     const { settings, currentUser, addLeaveRequest } = useApp();
@@ -93,12 +94,17 @@ export default function LeaveRequestPage() {
         return { annualLeaveUsed: annualUsed, unpaidLeaveUsed: unpaidUsed };
     }, [settings.leaveRequests, currentUser, currentYear]);
 
-    // Use Dynamic Balance from AppContext
-    const leaveLeft = currentUser?.annualLeaveRemaining || 0;
+    // Use Dynamic Balance from AppContext + Future Projection
+    // If user selects a future date, check entitlement at that date.
+    const currentEntitlement = useMemo(() => {
+        const targetDate = dateRange?.to || new Date();
+        return calculateEntitlement(currentUser, targetDate);
+    }, [currentUser, dateRange?.to]);
 
-    // Entitlement = Remaining + Used. 
-    // This correctly reflects the "Accrued" amount for new employees, or 12 for full-year employees.
-    const currentEntitlement = leaveLeft + annualLeaveUsed;
+    // Available Balance for THIS request
+    // We deduct what has been *approved* so far this year.
+    // Note: This assumes annualLeaveUsed includes all approved requests in the current year.
+    const leaveLeft = Math.max(0, currentEntitlement - annualLeaveUsed);
 
     const leaveLeftPercent = currentEntitlement > 0
         ? Math.round((leaveLeft / currentEntitlement) * 100)
