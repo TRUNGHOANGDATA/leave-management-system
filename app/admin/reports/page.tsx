@@ -317,10 +317,11 @@ export default function ReportsPage() {
                                     >
                                         <span className={`font-medium ${hasLeave ? 'text-orange-700' : 'text-slate-700'}`}>{format(day, 'd')}</span>
                                         {hasLeave && (
-                                            <div className="mt-1 space-y-0.5">
+                                            <div className="mt-1 space-y-1">
                                                 {leaves.slice(0, 2).map((l, i) => (
-                                                    <div key={i} className="text-xs text-orange-600 truncate">
-                                                        {l.name} <span className="text-orange-400">({l.department})</span>
+                                                    <div key={i} className="leading-tight">
+                                                        <div className="text-xs font-medium text-orange-600 truncate">{l.name}</div>
+                                                        <div className="text-[10px] text-orange-400 truncate">{l.department}</div>
                                                     </div>
                                                 ))}
                                                 {leaves.length > 2 && <div className="text-xs text-orange-500 font-medium">+{leaves.length - 2} người khác</div>}
