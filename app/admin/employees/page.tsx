@@ -57,6 +57,7 @@ interface Employee {
     email: string;
     role: UserRole; // Added role field
     employeeCode?: string;
+    startDate?: string; // Add startDate
 }
 
 const toTitleCase = (str: string) => {
@@ -310,6 +311,16 @@ const EmployeeEditDialog = ({
                         />
                     </div>
                     <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="edit-start-date" className="text-right">Ngày vào làm</Label>
+                        <Input
+                            id="edit-start-date"
+                            type="date"
+                            value={formData.startDate ? String(formData.startDate).split('T')[0] : ''}
+                            onChange={(e) => handleChange('startDate', e.target.value)}
+                            className="col-span-3"
+                        />
+                    </div>
+                    <div className="grid grid-cols-4 items-center gap-4">
                         <Label htmlFor="edit-role" className="text-right font-bold text-blue-600">Phân quyền</Label>
                         <div className="col-span-3">
                             <Select value={formData.role} onValueChange={(val) => handleChange('role', val)}>
@@ -412,6 +423,7 @@ export default function EmployeeManagementPage() {
                 role: u.role,
                 department: u.department,
                 employeeCode: u.employeeCode,
+                startDate: u.startDate, // Map start date
                 jobTitle: u.jobTitle || (u.role === 'director' ? 'Giám đốc' : u.role === 'manager' ? 'Quản lý' : 'Nhân viên'),
                 workLocation: u.workLocation || "Văn phòng",
                 managerId: u.managerId || "",
@@ -434,6 +446,7 @@ export default function EmployeeManagementPage() {
             workLocation: e.workLocation,
             managerId: e.managerId,
             employeeCode: e.employeeCode,
+            startDate: e.startDate, // Sync back
             avatarUrl: `/avatars/${String(Math.floor(Math.random() * 5) + 1).padStart(2, '0')}.png` // Random avatar
         }));
         setUsers(newUsers);
@@ -662,6 +675,7 @@ export default function EmployeeManagementPage() {
             email: updatedEmp.email,
             role: updatedEmp.role,
             department: updatedEmp.department,
+            startDate: updatedEmp.startDate, // Update start date
             managerId: updatedEmp.managerId || undefined,
             // Preserve avatar if we had it in settings, or let backend handle
             avatarUrl: settings.users.find(u => u.id === updatedEmp.id)?.avatarUrl
@@ -749,6 +763,7 @@ export default function EmployeeManagementPage() {
                                         <TableHead className="w-[50px] font-bold text-slate-700">STT</TableHead>
                                         <TableHead className="min-w-[100px] font-bold text-slate-700">Mã NV</TableHead>
                                         <TableHead className="min-w-[150px] font-bold text-slate-700">Họ và tên</TableHead>
+                                        <TableHead className="min-w-[100px] font-bold text-slate-700">Ngày vào</TableHead>
                                         <TableHead className="min-w-[120px] font-bold text-slate-700">Phòng ban</TableHead>
                                         <TableHead className="min-w-[100px] font-bold text-slate-700">Khoa/Vị trí</TableHead>
                                         <TableHead className="min-w-[200px] font-bold text-slate-700">Chức danh</TableHead>
@@ -764,6 +779,9 @@ export default function EmployeeManagementPage() {
                                             <TableCell className="text-slate-700 text-sm font-medium">{emp.employeeCode || "---"}</TableCell>
                                             <TableCell className="font-medium text-sm text-slate-900">
                                                 <div>{emp.fullName}</div>
+                                            </TableCell>
+                                            <TableCell className="text-sm text-slate-600">
+                                                {emp.startDate ? new Date(emp.startDate).toLocaleDateString('vi-VN') : '---'}
                                             </TableCell>
                                             <TableCell>
                                                 <span className="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-800">{emp.department}</span>
