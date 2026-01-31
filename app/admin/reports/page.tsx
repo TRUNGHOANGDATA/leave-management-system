@@ -13,6 +13,7 @@ import {
     PieChart, Pie, Cell, Legend, BarChart, Bar
 } from 'recharts';
 import { Download, Calendar, BarChart3, FileSpreadsheet, Users, Clock, TrendingUp, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 const COLORS = ['#3b82f6', '#f59e0b', '#10b981', '#ef4444', '#8b5cf6'];
 
@@ -22,6 +23,7 @@ export default function ReportsPage() {
     const [calendarMonth, setCalendarMonth] = useState(new Date());
     const [exportFromDate, setExportFromDate] = useState(format(startOfMonth(new Date()), 'yyyy-MM-dd'));
     const [exportToDate, setExportToDate] = useState(format(endOfMonth(new Date()), 'yyyy-MM-dd'));
+    const [selectedDay, setSelectedDay] = useState<{ date: Date; leaves: { name: string; department: string }[] } | null>(null);
 
     const filteredData = useMemo(() => {
         if (!settings.users || !currentUser) return { users: [], requests: [] };
@@ -99,7 +101,7 @@ export default function ReportsPage() {
             return isWithinInterval(day, { start: from, end: to });
         }).map(r => {
             const user = filteredData.users.find(u => u.id === r.userId);
-            return user?.name || 'Unknown';
+            return { name: user?.name || 'Unknown', department: user?.department || '' };
         });
     };
 
@@ -308,12 +310,16 @@ export default function ReportsPage() {
                                 const leaves = getLeaveForDay(day);
                                 const hasLeave = leaves.length > 0;
                                 return (
-                                    <div key={day.toISOString()} className={`relative p-2 min-h-[70px] border rounded-md text-sm ${hasLeave ? 'bg-orange-50 border-orange-200' : 'bg-white border-slate-100'}`}>
+                                    <div
+                                        key={day.toISOString()}
+                                        className={`relative p-2 min-h-[70px] border rounded-md text-sm cursor-pointer transition-colors ${hasLeave ? 'bg-orange-50 border-orange-200 hover:bg-orange-100' : 'bg-white border-slate-100 hover:bg-slate-50'}`}
+                                        onClick={() => hasLeave && setSelectedDay({ date: day, leaves })}
+                                    >
                                         <span className={`font-medium ${hasLeave ? 'text-orange-700' : 'text-slate-700'}`}>{format(day, 'd')}</span>
                                         {hasLeave && (
                                             <div className="mt-1 space-y-0.5">
-                                                {leaves.slice(0, 2).map((name, i) => <div key={i} className="text-xs text-orange-600 truncate">{name}</div>)}
-                                                {leaves.length > 2 && <div className="text-xs text-orange-500">+{leaves.length - 2} người khác</div>}
+                                                {leaves.slice(0, 2).map((l, i) => <div key={i} className="text-xs text-orange-600 truncate">{l.name}</div>)}
+                                                {leaves.length > 2 && <div className="text-xs text-orange-500 font-medium">+{leaves.length - 2} người khác</div>}
                                             </div>
                                         )}
                                     </div>
@@ -323,6 +329,23 @@ export default function ReportsPage() {
                     </CardContent>
                 </Card>
             )}
+
+            {/* Dialog for Day Details */}
+            <Dialog open={!!selectedDay} onOpenChange={() => setSelectedDay(null)}>
+                <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                        <DialogTitle>Danh sách nghỉ ngày {selectedDay ? format(selectedDay.date, 'dd/MM/yyyy') : ''}</DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-2 max-h-[300px] overflow-auto">
+                        {selectedDay?.leaves.map((l, i) => (
+                            <div key={i} className="flex justify-between items-center p-2 bg-slate-50 rounded-md border">
+                                <span className="font-medium text-slate-800">{l.name}</span>
+                                <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded">{l.department}</span>
+                            </div>
+                        ))}
+                    </div>
+                </DialogContent>
+            </Dialog>
 
             {/* Tab: Export */}
             {activeTab === 'export' && (
