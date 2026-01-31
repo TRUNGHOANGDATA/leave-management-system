@@ -1,133 +1,358 @@
 "use client"
 
-import React, { useMemo } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import React, { useMemo, useState } from 'react';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { useApp } from "@/context/AppContext";
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isWithinInterval, parseISO } from 'date-fns';
+import { vi } from 'date-fns/locale';
+import * as XLSX from 'xlsx';
+import {
+    LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+    PieChart, Pie, Cell, Legend, BarChart, Bar
+} from 'recharts';
+import { Download, Calendar, BarChart3, FileSpreadsheet, Users, Clock, TrendingUp, ChevronLeft, ChevronRight } from 'lucide-react';
+
+const COLORS = ['#3b82f6', '#f59e0b', '#10b981', '#ef4444', '#8b5cf6'];
 
 export default function ReportsPage() {
     const { settings, currentUser } = useApp();
+    const [activeTab, setActiveTab] = useState("overview");
+    const [calendarMonth, setCalendarMonth] = useState(new Date());
+    const [exportFromDate, setExportFromDate] = useState(format(startOfMonth(new Date()), 'yyyy-MM-dd'));
+    const [exportToDate, setExportToDate] = useState(format(endOfMonth(new Date()), 'yyyy-MM-dd'));
 
     const filteredData = useMemo(() => {
         if (!settings.users || !currentUser) return { users: [], requests: [] };
 
         let users = settings.users;
-        let requests = settings.leaveRequests;
-
-        // VISIBILITY LOGIC:
-        // - Admin/Director: See ALL
-        // - Manager: See ONLY own department
-        // - Employee: (Should not access this page, but if so, only see self? Or handled by Menu)
+        let requests = settings.leaveRequests.filter(r => r.status === 'approved');
 
         if (currentUser.role === 'manager') {
-            // Manager: Only users in same department
             users = users.filter(u => u.department === currentUser.department);
-            // Requests from those users
             requests = requests.filter(r => {
                 const u = users.find(user => user.id === r.userId);
                 return !!u;
             });
         }
 
-        // Ensure data consistency: Requests must belong to visible users
-        // This handles recursive logic if needed, but for now simple filter is enough
-
         return { users, requests };
     }, [settings.users, settings.leaveRequests, currentUser]);
 
-    // Simple Calculations
-    const totalRequests = filteredData.requests.length;
-    const pendingRequests = filteredData.requests.filter(r => r.status === 'pending').length;
-    const approvedRequests = filteredData.requests.filter(r => r.status === 'approved').length;
-    const rejectedRequests = filteredData.requests.filter(r => r.status === 'rejected').length;
+    // Stats
+    const totalRequests = settings.leaveRequests.length;
+    const pendingRequests = settings.leaveRequests.filter(r => r.status === 'pending').length;
+    const approvedRequests = settings.leaveRequests.filter(r => r.status === 'approved').length;
+    const rejectedRequests = settings.leaveRequests.filter(r => r.status === 'rejected').length;
+
+    // Monthly Trend Data
+    const monthlyTrendData = useMemo(() => {
+        const months: { [key: string]: number } = {};
+        const now = new Date();
+        for (let i = 5; i >= 0; i--) {
+            const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+            const key = format(d, 'MM/yyyy');
+            months[key] = 0;
+        }
+        filteredData.requests.forEach(r => {
+            const key = format(parseISO(r.fromDate), 'MM/yyyy');
+            if (months[key] !== undefined) months[key]++;
+        });
+        return Object.entries(months).map(([name, value]) => ({ name, value }));
+    }, [filteredData.requests]);
+
+    // Leave Type Distribution
+    const leaveTypeData = useMemo(() => {
+        const types: { [key: string]: number } = { 'Phép năm': 0, 'Không lương': 0, 'Theo chế độ': 0 };
+        filteredData.requests.forEach(r => {
+            types['Phép năm'] += r.daysAnnual || 0;
+            types['Không lương'] += r.daysUnpaid || 0;
+            types['Theo chế độ'] += r.daysExempt || 0;
+        });
+        return Object.entries(types).filter(([_, v]) => v > 0).map(([name, value]) => ({ name, value }));
+    }, [filteredData.requests]);
+
+    // Department Comparison
+    const deptData = useMemo(() => {
+        const depts: { [key: string]: number } = {};
+        filteredData.requests.forEach(r => {
+            const user = settings.users.find(u => u.id === r.userId);
+            if (user) {
+                depts[user.department] = (depts[user.department] || 0) + (r.duration || 1);
+            }
+        });
+        return Object.entries(depts).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value).slice(0, 5);
+    }, [filteredData.requests, settings.users]);
+
+    // Calendar Data
+    const calendarDays = useMemo(() => {
+        const start = startOfMonth(calendarMonth);
+        const end = endOfMonth(calendarMonth);
+        return eachDayOfInterval({ start, end });
+    }, [calendarMonth]);
+
+    const getLeaveForDay = (day: Date) => {
+        return filteredData.requests.filter(r => {
+            const from = parseISO(r.fromDate);
+            const to = parseISO(r.toDate);
+            return isWithinInterval(day, { start: from, end: to });
+        }).map(r => {
+            const user = filteredData.users.find(u => u.id === r.userId);
+            return user?.name || 'Unknown';
+        });
+    };
+
+    // Export Function
+    const handleExport = () => {
+        const from = parseISO(exportFromDate);
+        const to = parseISO(exportToDate);
+
+        const relevantRequests = filteredData.requests.filter(r => {
+            const rFrom = parseISO(r.fromDate);
+            const rTo = parseISO(r.toDate);
+            return (rFrom >= from && rFrom <= to) || (rTo >= from && rTo <= to) || (rFrom <= from && rTo >= to);
+        });
+
+        // Sheet 1: Summary
+        const summaryMap: { [userId: string]: { annual: number, unpaid: number, exempt: number, dates: string[] } } = {};
+        relevantRequests.forEach(r => {
+            if (!summaryMap[r.userId]) summaryMap[r.userId] = { annual: 0, unpaid: 0, exempt: 0, dates: [] };
+            summaryMap[r.userId].annual += r.daysAnnual || 0;
+            summaryMap[r.userId].unpaid += r.daysUnpaid || 0;
+            summaryMap[r.userId].exempt += r.daysExempt || 0;
+            const start = parseISO(r.fromDate);
+            const end = parseISO(r.toDate);
+            eachDayOfInterval({ start, end }).forEach(d => {
+                if (isWithinInterval(d, { start: from, end: to })) {
+                    summaryMap[r.userId].dates.push(format(d, 'dd/MM'));
+                }
+            });
+        });
+
+        const summaryRows = filteredData.users.map((u, idx) => {
+            const s = summaryMap[u.id] || { annual: 0, unpaid: 0, exempt: 0, dates: [] };
+            return {
+                'STT': idx + 1,
+                'Mã NV': u.employeeCode || '',
+                'Họ tên': u.name,
+                'Phòng ban': u.department,
+                'Phép năm': s.annual,
+                'Không lương': s.unpaid,
+                'Theo chế độ': s.exempt,
+                'Tổng ngày': s.annual + s.unpaid + s.exempt,
+                'Các ngày nghỉ': [...new Set(s.dates)].join(', ')
+            };
+        }).filter(r => r['Tổng ngày'] > 0);
+
+        // Sheet 2: Details
+        const detailRows = relevantRequests.map(r => {
+            const user = filteredData.users.find(u => u.id === r.userId);
+            return {
+                'Mã NV': user?.employeeCode || '',
+                'Họ tên': user?.name || '',
+                'Loại nghỉ': r.type === 'annual' ? 'Phép năm' : r.type === 'unpaid' ? 'Không lương' : 'Theo chế độ',
+                'Từ ngày': format(parseISO(r.fromDate), 'dd/MM/yyyy'),
+                'Đến ngày': format(parseISO(r.toDate), 'dd/MM/yyyy'),
+                'Số ngày': r.duration || 1,
+                'Trạng thái': r.status === 'approved' ? 'Đã duyệt' : r.status === 'rejected' ? 'Từ chối' : 'Chờ duyệt',
+                'Người duyệt': r.approvedBy || '',
+                'Lý do': r.reason || ''
+            };
+        });
+
+        const wb = XLSX.utils.book_new();
+        const ws1 = XLSX.utils.json_to_sheet(summaryRows);
+        const ws2 = XLSX.utils.json_to_sheet(detailRows);
+        XLSX.utils.book_append_sheet(wb, ws1, 'Tổng hợp');
+        XLSX.utils.book_append_sheet(wb, ws2, 'Chi tiết');
+        XLSX.writeFile(wb, `BaoCaoNghiPhep_${format(from, 'ddMMyyyy')}_${format(to, 'ddMMyyyy')}.xlsx`);
+    };
 
     return (
-        <div className="container py-10 max-w-6xl">
-            <div className="flex justify-between items-center mb-6">
+        <div className="container py-8 max-w-7xl space-y-6">
+            <div className="flex justify-between items-center">
                 <div>
-                    <h1 className="text-3xl font-bold tracking-tight text-slate-900">Báo cáo tổng hợp</h1>
+                    <h1 className="text-3xl font-bold tracking-tight text-slate-900">Báo cáo & Thống kê</h1>
                     <p className="text-slate-500">
-                        {currentUser?.role === 'manager'
-                            ? `Dữ liệu phòng ban: ${currentUser.department}`
-                            : 'Dữ liệu toàn công ty'}
+                        {currentUser?.role === 'manager' ? `Dữ liệu phòng ban: ${currentUser.department}` : 'Dữ liệu toàn công ty'}
                     </p>
                 </div>
             </div>
 
-            <div className="grid gap-4 md:grid-cols-4 mb-8">
-                <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Tổng số đơn nghỉ</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold">{totalRequests}</div>
-                        <p className="text-xs text-muted-foreground mt-1">Đơn từ {filteredData.users.length} nhân viên</p>
-                    </CardContent>
-                </Card>
-                <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Chờ duyệt</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold text-orange-600">{pendingRequests}</div>
-                    </CardContent>
-                </Card>
-                <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Đã duyệt</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold text-green-600">{approvedRequests}</div>
-                    </CardContent>
-                </Card>
-                <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Từ chối</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold text-red-600">{rejectedRequests}</div>
-                    </CardContent>
-                </Card>
+            {/* Custom Tabs */}
+            <div className="flex space-x-1 border-b border-slate-200">
+                {[
+                    { id: 'overview', label: 'Tổng quan', icon: BarChart3 },
+                    { id: 'charts', label: 'Biểu đồ', icon: TrendingUp },
+                    { id: 'calendar', label: 'Lịch nghỉ Team', icon: Calendar },
+                    { id: 'export', label: 'Xuất báo cáo', icon: FileSpreadsheet }
+                ].map(tab => (
+                    <button
+                        key={tab.id}
+                        onClick={() => setActiveTab(tab.id)}
+                        className={`flex items-center gap-2 px-4 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === tab.id
+                            ? 'border-blue-500 text-blue-600'
+                            : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
+                            }`}
+                    >
+                        <tab.icon className="h-4 w-4" />
+                        {tab.label}
+                    </button>
+                ))}
             </div>
 
-            <Card>
-                <CardHeader>
-                    <CardTitle>Chi tiết theo nhân viên</CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <div className="space-y-4">
-                        {filteredData.users.map(user => {
-                            const userRequests = filteredData.requests.filter(r => r.userId === user.id);
-                            const userPending = userRequests.filter(r => r.status === 'pending').length;
-                            const userApproved = userRequests.filter(r => r.status === 'approved').length;
-
-                            if (userRequests.length === 0) return null;
-
-                            return (
-                                <div key={user.id} className="flex items-center justify-between p-4 border rounded-lg bg-slate-50/50">
-                                    <div>
-                                        <p className="font-medium text-slate-900">{user.name}</p>
-                                        <p className="text-xs text-slate-500">{user.department}</p>
-                                    </div>
-                                    <div className="flex gap-4 text-sm">
-                                        <div className="text-center">
-                                            <span className="block font-bold text-slate-700">{userRequests.length}</span>
-                                            <span className="text-xs text-slate-400">Tổng đơn</span>
-                                        </div>
-                                        <div className="text-center">
-                                            <span className="block font-bold text-green-600">{userApproved}</span>
-                                            <span className="text-xs text-slate-400">Duyệt</span>
-                                        </div>
-                                        <div className="text-center">
-                                            <span className="block font-bold text-orange-600">{userPending}</span>
-                                            <span className="text-xs text-slate-400">Chờ</span>
-                                        </div>
-                                    </div>
-                                </div>
-                            );
-                        })}
+            {/* Tab: Overview */}
+            {activeTab === 'overview' && (
+                <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                    <div className="grid gap-4 md:grid-cols-4">
+                        <Card><CardHeader className="pb-2"><CardTitle className="text-sm font-medium">Tổng số đơn</CardTitle></CardHeader><CardContent><div className="text-2xl font-bold">{totalRequests}</div><p className="text-xs text-muted-foreground mt-1">Từ {filteredData.users.length} nhân viên</p></CardContent></Card>
+                        <Card><CardHeader className="pb-2"><CardTitle className="text-sm font-medium">Chờ duyệt</CardTitle></CardHeader><CardContent><div className="text-2xl font-bold text-orange-600">{pendingRequests}</div></CardContent></Card>
+                        <Card><CardHeader className="pb-2"><CardTitle className="text-sm font-medium">Đã duyệt</CardTitle></CardHeader><CardContent><div className="text-2xl font-bold text-green-600">{approvedRequests}</div></CardContent></Card>
+                        <Card><CardHeader className="pb-2"><CardTitle className="text-sm font-medium">Từ chối</CardTitle></CardHeader><CardContent><div className="text-2xl font-bold text-red-600">{rejectedRequests}</div></CardContent></Card>
                     </div>
-                </CardContent>
-            </Card>
+
+                    <Card>
+                        <CardHeader><CardTitle>Chi tiết theo nhân viên</CardTitle></CardHeader>
+                        <CardContent>
+                            <div className="space-y-3 max-h-[400px] overflow-y-auto">
+                                {filteredData.users.map(user => {
+                                    const userRequests = settings.leaveRequests.filter(r => r.userId === user.id);
+                                    if (userRequests.length === 0) return null;
+                                    const approved = userRequests.filter(r => r.status === 'approved').length;
+                                    const pending = userRequests.filter(r => r.status === 'pending').length;
+                                    return (
+                                        <div key={user.id} className="flex items-center justify-between p-3 border rounded-lg bg-slate-50/50">
+                                            <div><p className="font-medium text-slate-900">{user.name}</p><p className="text-xs text-slate-500">{user.department}</p></div>
+                                            <div className="flex gap-4 text-sm">
+                                                <div className="text-center"><span className="block font-bold text-slate-700">{userRequests.length}</span><span className="text-xs text-slate-400">Tổng</span></div>
+                                                <div className="text-center"><span className="block font-bold text-green-600">{approved}</span><span className="text-xs text-slate-400">Duyệt</span></div>
+                                                <div className="text-center"><span className="block font-bold text-orange-600">{pending}</span><span className="text-xs text-slate-400">Chờ</span></div>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </CardContent>
+                    </Card>
+                </div>
+            )}
+
+            {/* Tab: Charts */}
+            {activeTab === 'charts' && (
+                <div className="grid gap-6 md:grid-cols-2 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                    <Card>
+                        <CardHeader><CardTitle>Xu hướng nghỉ phép (6 tháng gần nhất)</CardTitle></CardHeader>
+                        <CardContent className="h-[300px]">
+                            <ResponsiveContainer width="100%" height="100%">
+                                <LineChart data={monthlyTrendData}>
+                                    <CartesianGrid strokeDasharray="3 3" />
+                                    <XAxis dataKey="name" />
+                                    <YAxis allowDecimals={false} />
+                                    <Tooltip />
+                                    <Line type="monotone" dataKey="value" stroke="#3b82f6" strokeWidth={2} name="Số đơn" />
+                                </LineChart>
+                            </ResponsiveContainer>
+                        </CardContent>
+                    </Card>
+
+                    <Card>
+                        <CardHeader><CardTitle>Phân bổ theo loại nghỉ</CardTitle></CardHeader>
+                        <CardContent className="h-[300px]">
+                            <ResponsiveContainer width="100%" height="100%">
+                                <PieChart>
+                                    <Pie data={leaveTypeData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} label>
+                                        {leaveTypeData.map((_, index) => <Cell key={index} fill={COLORS[index % COLORS.length]} />)}
+                                    </Pie>
+                                    <Tooltip />
+                                    <Legend />
+                                </PieChart>
+                            </ResponsiveContainer>
+                        </CardContent>
+                    </Card>
+
+                    <Card className="md:col-span-2">
+                        <CardHeader><CardTitle>Top phòng ban nghỉ nhiều nhất</CardTitle></CardHeader>
+                        <CardContent className="h-[300px]">
+                            <ResponsiveContainer width="100%" height="100%">
+                                <BarChart data={deptData} layout="vertical">
+                                    <CartesianGrid strokeDasharray="3 3" />
+                                    <XAxis type="number" allowDecimals={false} />
+                                    <YAxis dataKey="name" type="category" width={150} />
+                                    <Tooltip />
+                                    <Bar dataKey="value" fill="#3b82f6" name="Số ngày nghỉ" />
+                                </BarChart>
+                            </ResponsiveContainer>
+                        </CardContent>
+                    </Card>
+                </div>
+            )}
+
+            {/* Tab: Calendar */}
+            {activeTab === 'calendar' && (
+                <Card className="animate-in fade-in slide-in-from-bottom-2 duration-300">
+                    <CardHeader className="flex flex-row items-center justify-between">
+                        <CardTitle>Lịch nghỉ của Team - {format(calendarMonth, 'MMMM yyyy', { locale: vi })}</CardTitle>
+                        <div className="flex gap-2">
+                            <Button variant="outline" size="icon" onClick={() => setCalendarMonth(new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() - 1, 1))}><ChevronLeft className="h-4 w-4" /></Button>
+                            <Button variant="outline" size="icon" onClick={() => setCalendarMonth(new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() + 1, 1))}><ChevronRight className="h-4 w-4" /></Button>
+                        </div>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="grid grid-cols-7 gap-1 text-center mb-2">
+                            {['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'].map(d => <div key={d} className="text-xs font-medium text-slate-500 py-2">{d}</div>)}
+                        </div>
+                        <div className="grid grid-cols-7 gap-1">
+                            {Array.from({ length: calendarDays[0].getDay() }).map((_, i) => <div key={`empty-${i}`} />)}
+                            {calendarDays.map(day => {
+                                const leaves = getLeaveForDay(day);
+                                const hasLeave = leaves.length > 0;
+                                return (
+                                    <div key={day.toISOString()} className={`relative p-2 min-h-[70px] border rounded-md text-sm ${hasLeave ? 'bg-orange-50 border-orange-200' : 'bg-white border-slate-100'}`}>
+                                        <span className={`font-medium ${hasLeave ? 'text-orange-700' : 'text-slate-700'}`}>{format(day, 'd')}</span>
+                                        {hasLeave && (
+                                            <div className="mt-1 space-y-0.5">
+                                                {leaves.slice(0, 2).map((name, i) => <div key={i} className="text-xs text-orange-600 truncate">{name}</div>)}
+                                                {leaves.length > 2 && <div className="text-xs text-orange-500">+{leaves.length - 2} người khác</div>}
+                                            </div>
+                                        )}
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </CardContent>
+                </Card>
+            )}
+
+            {/* Tab: Export */}
+            {activeTab === 'export' && (
+                <Card className="animate-in fade-in slide-in-from-bottom-2 duration-300">
+                    <CardHeader>
+                        <CardTitle>Xuất báo cáo chi tiết</CardTitle>
+                        <CardDescription>Chọn khoảng thời gian và tải file Excel</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                        <div className="flex flex-wrap gap-4 items-end">
+                            <div>
+                                <label className="text-sm font-medium text-slate-700">Từ ngày</label>
+                                <Input type="date" value={exportFromDate} onChange={e => setExportFromDate(e.target.value)} className="w-[180px]" />
+                            </div>
+                            <div>
+                                <label className="text-sm font-medium text-slate-700">Đến ngày</label>
+                                <Input type="date" value={exportToDate} onChange={e => setExportToDate(e.target.value)} className="w-[180px]" />
+                            </div>
+                            <Button onClick={handleExport} className="gap-2"><Download className="h-4 w-4" /> Xuất Excel</Button>
+                        </div>
+                        <div className="p-4 bg-slate-50 rounded-lg border text-sm text-slate-600">
+                            <p className="font-medium mb-2">File Excel sẽ bao gồm:</p>
+                            <ul className="list-disc list-inside space-y-1">
+                                <li><strong>Sheet "Tổng hợp"</strong>: Mã NV, Họ tên, Phòng ban, số ngày theo loại, các ngày nghỉ cụ thể</li>
+                                <li><strong>Sheet "Chi tiết"</strong>: Toàn bộ đơn xin nghỉ trong khoảng thời gian</li>
+                            </ul>
+                        </div>
+                    </CardContent>
+                </Card>
+            )}
         </div>
     );
 }
