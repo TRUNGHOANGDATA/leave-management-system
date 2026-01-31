@@ -129,18 +129,45 @@ export default function ReportsPage() {
             .sort((a, b) => parseISO(b.fromDate).getTime() - parseISO(a.fromDate).getTime());
     }, [selectedEmployee, chartFilteredRequests]);
 
-    // Approval Rate
-    const approvalRateData = useMemo(() => {
-        const from = parseISO(chartFromDate);
-        const to = parseISO(chartToDate);
-        const inRange = settings.leaveRequests.filter(r => {
-            const rFrom = parseISO(r.fromDate);
-            return rFrom >= from && rFrom <= to && r.status !== 'pending';
+    // Monthly Leave Days Trend
+    const monthlyDaysTrend = useMemo(() => {
+        const months: { [key: string]: number } = {};
+        const now = new Date();
+        for (let i = 5; i >= 0; i--) {
+            const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+            const key = format(d, 'MM/yyyy');
+            months[key] = 0;
+        }
+        chartFilteredRequests.forEach(r => {
+            const key = format(parseISO(r.fromDate), 'MM/yyyy');
+            if (months[key] !== undefined) months[key] += (r.duration || 1);
         });
-        const approved = inRange.filter(r => r.status === 'approved').length;
-        const rejected = inRange.filter(r => r.status === 'rejected').length;
-        return [{ name: 'Đã duyệt', value: approved }, { name: 'Từ chối', value: rejected }].filter(d => d.value > 0);
-    }, [settings.leaveRequests, chartFromDate, chartToDate]);
+        return Object.entries(months).map(([name, value]) => ({ name, value }));
+    }, [chartFilteredRequests]);
+
+    // Employees with low leave balance (< 5 days)
+    const lowBalanceEmployees = useMemo(() => {
+        return settings.users
+            .filter(u => (u.annualLeaveRemaining || 0) < 5 && u.role !== 'admin')
+            .sort((a, b) => (a.annualLeaveRemaining || 0) - (b.annualLeaveRemaining || 0))
+            .slice(0, 5)
+            .map(u => ({
+                name: u.name,
+                department: u.department,
+                remaining: u.annualLeaveRemaining || 0
+            }));
+    }, [settings.users]);
+
+    // Leave by location
+    const locationData = useMemo(() => {
+        const locations: { [key: string]: number } = {};
+        chartFilteredRequests.forEach(r => {
+            const user = settings.users.find(u => u.id === r.userId);
+            const loc = user?.workLocation || 'Không xác định';
+            locations[loc] = (locations[loc] || 0) + (r.duration || 1);
+        });
+        return Object.entries(locations).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value);
+    }, [chartFilteredRequests, settings.users]);
 
     // Weekday Analysis - only show working days based on workSchedule
     const weekdayData = useMemo(() => {
@@ -371,18 +398,18 @@ export default function ReportsPage() {
                             </CardContent>
                         </Card>
 
-                        {/* Approval Rate Donut */}
+                        {/* Monthly Leave Days Trend */}
                         <Card>
-                            <CardHeader><CardTitle>Tỷ lệ duyệt đơn</CardTitle></CardHeader>
+                            <CardHeader><CardTitle>Xu hướng ngày nghỉ theo tháng</CardTitle></CardHeader>
                             <CardContent className="h-[280px]">
                                 <ResponsiveContainer width="100%" height="100%">
-                                    <PieChart>
-                                        <Pie data={approvalRateData} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={40} outerRadius={70} label>
-                                            <Cell fill="#10b981" />
-                                            <Cell fill="#ef4444" />
-                                        </Pie>
-                                        <Tooltip /><Legend />
-                                    </PieChart>
+                                    <LineChart data={monthlyDaysTrend}>
+                                        <CartesianGrid strokeDasharray="3 3" />
+                                        <XAxis dataKey="name" />
+                                        <YAxis allowDecimals={false} />
+                                        <Tooltip />
+                                        <Line type="monotone" dataKey="value" stroke="#3b82f6" strokeWidth={2} name="Tổng ngày nghỉ" />
+                                    </LineChart>
                                 </ResponsiveContainer>
                             </CardContent>
                         </Card>
@@ -438,6 +465,42 @@ export default function ReportsPage() {
                                         <Tooltip />
                                         <Bar dataKey="value" fill="#3b82f6" name="Số ngày nghỉ" />
                                     </BarChart>
+                                </ResponsiveContainer>
+                            </CardContent>
+                        </Card>
+
+                        {/* Low Balance Alert */}
+                        <Card>
+                            <CardHeader><CardTitle className="text-red-600">⚠️ Nhân viên sắp hết phép</CardTitle></CardHeader>
+                            <CardContent>
+                                <div className="space-y-2">
+                                    {lowBalanceEmployees.length === 0 && <p className="text-sm text-slate-500">Không có ai sắp hết phép năm</p>}
+                                    {lowBalanceEmployees.map((e, i) => (
+                                        <div key={i} className="flex items-center justify-between p-2 bg-red-50 rounded-md border border-red-100">
+                                            <div>
+                                                <span className="font-medium text-slate-800">{e.name}</span>
+                                                <span className="text-xs text-slate-500 ml-2">({e.department})</span>
+                                            </div>
+                                            <span className={`text-sm font-bold ${e.remaining <= 2 ? 'text-red-600' : 'text-orange-600'}`}>
+                                                {e.remaining} ngày còn lại
+                                            </span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </CardContent>
+                        </Card>
+
+                        {/* Leave by Location */}
+                        <Card>
+                            <CardHeader><CardTitle>Nghỉ phép theo địa điểm</CardTitle></CardHeader>
+                            <CardContent className="h-[280px]">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <PieChart>
+                                        <Pie data={locationData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={70} label>
+                                            {locationData.map((_, index) => <Cell key={index} fill={COLORS[index % COLORS.length]} />)}
+                                        </Pie>
+                                        <Tooltip /><Legend />
+                                    </PieChart>
                                 </ResponsiveContainer>
                             </CardContent>
                         </Card>
