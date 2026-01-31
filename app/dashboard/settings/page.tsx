@@ -33,6 +33,9 @@ export default function SettingsPage() {
     const [newHolidayName, setNewHolidayName] = useState("");
     const [newHolidayDate, setNewHolidayDate] = useState("");
 
+    // Edit State
+    const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+
     const handleManualAdd = async () => {
         if (!newHolidayDate || !newHolidayName) return;
         await addHoliday(new Date(newHolidayDate), newHolidayName);
