@@ -145,12 +145,26 @@ export default function ReportsPage() {
         return Object.entries(months).map(([name, value]) => ({ name, value }));
     }, [chartFilteredRequests]);
 
-    // Calculate Entitlement Helper
+    // --- Helper: Calculate Annual Leave Entitlement (Pro-rated) ---
     const calculateEntitlement = (user: any) => {
         const currentYear = new Date().getFullYear();
-        if (!user.startDate) return 12; // Default to 12 if no data
+        // Default to 12 if no startDate
+        if (!user.start_date && !user.startDate && !user.createdAt) return 12;
 
-        const start = parseISO(user.startDate);
+        let dateStr = user.start_date || user.startDate || user.createdAt;
+        let start = new Date(dateStr);
+
+        // Try parsing DD/MM/YYYY if standard parse invalid or looks wrong
+        if (isNaN(start.getTime()) && typeof dateStr === 'string' && dateStr.includes('/')) {
+            const parts = dateStr.split('/');
+            if (parts.length === 3) {
+                // DD/MM/YYYY
+                start = new Date(`${parts[2]}-${parts[1]}-${parts[0]}`);
+            }
+        }
+
+        if (isNaN(start.getTime())) return 12;
+
         const joinYear = start.getFullYear();
 
         if (joinYear < currentYear) return 12;

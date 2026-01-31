@@ -157,8 +157,20 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         // Default to 12 if no startDate
         if (!user.start_date && !user.startDate) return 12;
 
-        const start = new Date(user.start_date || user.startDate);
-        if (isNaN(start.getTime())) return 12; // Invalid date fallback
+        let dateStr = user.start_date || user.startDate;
+        let start = new Date(dateStr);
+
+        // Try parsing DD/MM/YYYY if standard parse invalid or looks wrong (e.g. if > current year but shouldn't be)
+        if (isNaN(start.getTime()) && typeof dateStr === 'string' && dateStr.includes('/')) {
+            const parts = dateStr.split('/');
+            if (parts.length === 3) {
+                // DD/MM/YYYY
+                start = new Date(`${parts[2]}-${parts[1]}-${parts[0]}`);
+            }
+        }
+
+        // Final check
+        if (isNaN(start.getTime())) return 12;
 
         const joinYear = start.getFullYear();
 
