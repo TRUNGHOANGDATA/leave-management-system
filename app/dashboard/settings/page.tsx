@@ -248,7 +248,7 @@ export default function SettingsPage() {
                         <CardHeader className="flex flex-row items-center justify-between pb-2">
                             <div>
                                 <CardTitle className="text-xl">Danh sách ngày nghỉ lễ</CardTitle>
-                                <CardDescription>Quản lý ngày nghỉ lễ năm {currentYear} - {currentYear + 1}.</CardDescription>
+                                <CardDescription>Quản lý ngày nghỉ lễ.</CardDescription>
                             </div>
                             <div className="flex gap-2">
                                 <div className="relative">
@@ -302,7 +302,7 @@ export default function SettingsPage() {
                                                     </div>
                                                 </TableCell>
                                                 <TableCell className="text-right">
-                                                    <div className="flex justify-end gap-1 opacity-100 sm:opacity-0 hover:opacity-100 transition-opacity">
+                                                    <div className="flex justify-end gap-1">
                                                         {holiday.dateStr && (
                                                             <>
                                                                 <Button variant="ghost" size="icon" className="h-8 w-8 text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-full" onClick={() => openEditDialog(holiday)}>
