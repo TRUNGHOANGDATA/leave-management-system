@@ -151,7 +151,7 @@ export default function ReportsPage() {
             return {
                 'Mã NV': user?.employeeCode || '',
                 'Họ tên': user?.name || '',
-                'Loại nghỉ': r.type === 'annual' ? 'Phép năm' : r.type === 'unpaid' ? 'Không lương' : 'Theo chế độ',
+                'Loại nghỉ': r.type,
                 'Từ ngày': format(parseISO(r.fromDate), 'dd/MM/yyyy'),
                 'Đến ngày': format(parseISO(r.toDate), 'dd/MM/yyyy'),
                 'Số ngày': r.duration || 1,
