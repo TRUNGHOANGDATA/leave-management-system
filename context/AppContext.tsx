@@ -150,6 +150,50 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         }
     };
 
+
+    // --- Helper: Calculate Annual Leave Entitlement (Pro-rated) ---
+    const calculateEntitlement = (user: any) => {
+        const currentYear = new Date().getFullYear();
+        // Default to 12 if no startDate
+        if (!user.start_date && !user.startDate) return 12;
+
+        const start = new Date(user.start_date || user.startDate);
+        if (isNaN(start.getTime())) return 12; // Invalid date fallback
+
+        const joinYear = start.getFullYear();
+
+        if (joinYear < currentYear) return 12; // Joined previous years -> Full 12 days
+        if (joinYear > currentYear) return 0;  // Future join date -> 0 days
+
+        // Joined this year: Accrual Basis (1 day per month worked)
+        // Example: Join Jan (0). Current Jan (0). Entitlement = 0 - 0 + 1 = 1 day.
+        // Example: Join Jan (0). Current Feb (1). Entitlement = 1 - 0 + 1 = 2 days.
+        const currentMonth = new Date().getMonth(); // 0-11
+        const startMonth = start.getMonth(); // 0-11
+
+        // If startMonth > currentMonth, they haven't started yet relative to now, so 0.
+        if (startMonth > currentMonth) return 0;
+
+        const accrued = currentMonth - startMonth + 1;
+        return Math.min(12, Math.max(0, accrued));
+    };
+
+    // Calculate Real-time Balance
+    // Balance = Entitlement - Approved Leave Days (Annual Type)
+    const calculateRemaining = (user: any, entitlement: number, requests: any[]) => {
+        const currentYear = new Date().getFullYear();
+        const used = requests
+            .filter(r =>
+                r.userId === user.id &&
+                r.status === 'approved' &&
+                r.type === 'Nghỉ phép năm' &&
+                new Date(r.fromDate).getFullYear() === currentYear
+            )
+            .reduce((sum, r) => sum + (r.daysAnnual || 0), 0);
+
+        return Math.max(0, entitlement - used);
+    };
+
     // Fetch data from Supabase
     const refreshData = async () => {
         try {
@@ -171,54 +215,60 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             if (notifError) throw notifError;
             if (holidaysError) console.error("Error fetching holidays:", holidaysError);
 
-            // Map Users
-            const mappedUsers: User[] = (usersData || []).map(u => ({
-                id: u.id,
-                name: u.name || u.email, // Fallback
-                email: u.email,
-                role: u.role as UserRole,
-                department: u.department || "",
-                managerId: u.manager_id,
-                avatarUrl: u.avatar_url,
-                employeeCode: u.employee_code || undefined,
-                startDate: u.start_date || u.created_at, // Use start_date or fallback to created_at
-                workLocation: u.work_location || undefined,
-                jobTitle: u.job_title || undefined
-            }));
-
-            // Map Requests
-            const mappedRequests: LeaveRequest[] = (requestsData || []).map(r => ({
+            const allRequests = (requestsData || []).map(r => ({
                 id: r.id,
-                type: r.type as any,
+                type: r.type,
                 fromDate: r.from_date,
                 toDate: r.to_date,
-                duration: r.duration || 0, // Use stored duration from DB
-                daysAnnual: r.days_annual || 0,
-                daysUnpaid: r.days_unpaid || 0,
-                daysExempt: r.days_exempt || 0,
-                status: r.status as any,
+                duration: r.duration,
+                daysAnnual: r.days_annual,
+                daysUnpaid: r.days_unpaid,
+                daysExempt: r.days_exempt,
+                status: r.status,
                 reason: r.reason,
                 userId: r.user_id,
-                approvedBy: r.approved_by_name || null,
+                approvedBy: r.approved_by,
                 exemptionNote: r.exemption_note,
-                requestDetails: r.request_details as any
+                requestDetails: r.request_details
             }));
 
-            // Re-calculate duration only if missing from DB (legacy data)
-            const requestsWithDuration = mappedRequests.map(r => {
-                if (r.duration > 0) return r;
-                const start = new Date(r.fromDate);
-                const end = new Date(r.toDate);
-                const diffTime = Math.abs(end.getTime() - start.getTime());
-                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
-                // Note: this is rough, doesn't account for weekends/holidays exact logic but good enough for display if DB empty
-                return { ...r, duration: diffDays };
+            // Map Users with Dynamic Calculation
+            const mappedUsers: User[] = (usersData || []).map(u => {
+                const entitlement = calculateEntitlement(u);
+                const remaining = calculateRemaining(u, entitlement, allRequests);
+
+                return {
+                    id: u.id,
+                    name: u.name || u.email, // Fallback
+                    email: u.email,
+                    role: u.role as UserRole,
+                    department: u.department || "",
+                    managerId: u.manager_id,
+                    avatarUrl: u.avatar_url,
+                    employeeCode: u.employee_code || undefined,
+                    workLocation: u.work_location || undefined,
+                    startDate: u.start_date, // Map from DB
+                    jobTitle: u.job_title || undefined,
+                    phone: u.phone,
+                    annualLeaveRemaining: remaining // DYNAMIC VALUE OVERRIDE
+                };
             });
+
+            // Re-calculate duration only if missing from DB (legacy data) - This logic is now handled in allRequests mapping
+            // const requestsWithDuration = mappedRequests.map(r => {
+            //     if (r.duration > 0) return r;
+            //     const start = new Date(r.fromDate);
+            //     const end = new Date(r.toDate);
+            //     const diffTime = Math.abs(end.getTime() - start.getTime());
+            //     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+            //     // Note: this is rough, doesn't account for weekends/holidays exact logic but good enough for display if DB empty
+            //     return { ...r, duration: diffDays };
+            // });
 
             setSettings(prev => ({
                 ...prev,
                 users: mappedUsers,
-                leaveRequests: requestsWithDuration,
+                leaveRequests: allRequests, // Replace with loaded requests,
                 notifications: (notifData || []).map(n => ({
                     id: n.id,
                     recipientId: n.recipient_id,
@@ -229,8 +279,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
                     createdAt: n.created_at
                 })),
                 customHolidays: (holidaysData || []).map(h => ({
-                    id: h.id,
-                    date: h.date,
+                    id: h.id, // Ensure ID is mapped
+                    date: h.date, // YYYY-MM-DD
                     name: h.name
                 }))
             }));

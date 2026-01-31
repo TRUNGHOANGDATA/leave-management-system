@@ -156,18 +156,17 @@ export default function ReportsPage() {
         if (joinYear < currentYear) return 12;
         if (joinYear > currentYear) return 0; // Future employee?
 
-        // Joined this year: Pro-rated
-        // Example: Join April (month 3 0-indexed) => 12 - 3 = 9 months left?
-        // Logic: 12 months - joinedMonthIndex + 1 (if join start of month)
-        // Simple logic: 1 day per month working.
-        // If join Jan 1st -> 12. If join Dec 1st -> 1.
-        // Month is 0-indexed in JS (Jan=0).
-        // Months remaining = 11 - start.getMonth() + 1 = 12 - start.getMonth()
-        // Wait, if join Jan (0) => 12 - 0 = 12. Correct.
-        // If join Dec (11) => 12 - 11 = 1. Correct.
-        // Note: This assumes joining at start of month. Strict logic uses actual date but this is good heuristic.
-        const monthsRemaining = 12 - start.getMonth();
-        return Math.max(0, monthsRemaining);
+        // Joined this year: Accrual Basis (1 day per month worked)
+        // Example: Join Jan (0). Current Jan (0). Entitlement = 0 - 0 + 1 = 1 day.
+        // Example: Join Jan (0). Current Feb (1). Entitlement = 1 - 0 + 1 = 2 days.
+        const currentMonth = new Date().getMonth(); // 0-11
+        const startMonth = start.getMonth(); // 0-11
+
+        // If startMonth > currentMonth, they haven't started yet relative to now (future in current year), so 0.
+        if (startMonth > currentMonth) return 0;
+
+        const accrued = currentMonth - startMonth + 1;
+        return Math.min(12, Math.max(0, accrued));
     };
 
     // Employees with low leave balance (< 5 days) - DYNAMIC CALCULATION
