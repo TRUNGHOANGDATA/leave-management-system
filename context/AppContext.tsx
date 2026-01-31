@@ -142,9 +142,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             });
             const result = await response.json();
             if (!response.ok) {
-                console.error('Edge Function Error:', result);
-            } else {
-                console.log('Email sent successfully:', result);
+                // Silent fail for email - don't disrupt user experience
             }
         } catch (error) {
             console.error('Failed to call Edge Function:', error);
@@ -378,9 +376,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             );
 
             if (error) {
-                console.error("Error importing holidays:", error);
                 refreshData(); // Revert
-                alert("Lỗi khi nhập ngày nghỉ lễ: " + error.message);
             } else {
                 refreshData(); // Sync IDs
             }
@@ -518,7 +514,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
                 // --- Send Email Notification to Manager ---
                 const requester = settings.users.find(u => u.id === request.userId);
                 const manager = settings.users.find(u => u.id === requester?.managerId);
-                console.log('[Email Debug] Requester:', requester?.name, 'Manager:', manager?.name, 'Manager Email:', manager?.email);
+
 
                 if (manager?.email) {
                     // Use configured SITE_URL for reliable production links
@@ -535,7 +531,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
                         if (error) {
                             console.error('[Notification Insert Error]', error);
                         } else {
-                            console.log('[Notification] Successfully sent to:', manager.name);
+
                         }
                     });
 
@@ -560,7 +556,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     };
 
     const updateLeaveRequestStatus = async (requestId: string, status: "approved" | "rejected" | "cancelled", approverName?: string) => {
-        console.log('[Status Update] Starting update:', { requestId, status, approverName });
+
 
         // Optimistic update for immediate UI feedback
         const previousRequests = settings.leaveRequests;
@@ -584,7 +580,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
                 .eq('id', requestId)
                 .select();
 
-            console.log('[Status Update] DB Response:', { error, data });
+
 
             if (error) {
                 console.error("Failed to update status:", error);
@@ -598,7 +594,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
                 if (status === 'approved' || status === 'rejected' || status === 'cancelled') {
                     const request = settings.leaveRequests.find(r => r.id === requestId);
                     const requester = settings.users.find(u => u.id === request?.userId);
-                    console.log('[Email Debug] Status Update - Requester:', requester?.name, 'Email:', requester?.email);
+
 
                     if (requester?.email) {
                         try {
