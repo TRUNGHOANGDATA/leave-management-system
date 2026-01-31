@@ -64,23 +64,20 @@ export default function SettingsPage() {
     }
 
     // Combine holidays for display
-    const getHolidaysForYear = (year: number) => {
+    // Combine holidays for display
+    const getHolidays = () => {
         const holidays: { date: Date; name: string; isCustom?: boolean; dateStr?: string }[] = [];
 
-        // Only get from settings.customHolidays (which are from DB)
+        // Get all from settings.customHolidays (which are from DB)
         settings.customHolidays.forEach(h => {
             const date = new Date(h.date);
-            // Filter by year if needed, or show all. 
-            // Current year view usually expects current + next year.
-            if (date.getFullYear() === year) {
-                holidays.push({ date, name: h.name, isCustom: true, dateStr: h.date });
-            }
+            holidays.push({ date, name: h.name, isCustom: true, dateStr: h.date });
         });
 
         return holidays.sort((a, b) => a.date.getTime() - b.date.getTime());
     };
 
-    const upcomingHolidays = getHolidaysForYear(currentYear).concat(getHolidaysForYear(currentYear + 1));
+    const upcomingHolidays = getHolidays();
 
     const filteredHolidays = upcomingHolidays.filter(h =>
         h.name.toLowerCase().includes(searchTerm.toLowerCase())
@@ -310,7 +307,7 @@ export default function SettingsPage() {
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
-                                        {filteredHolidays.filter(h => h.date >= new Date(new Date().getFullYear(), 0, 1)).map((holiday, index) => (
+                                        {filteredHolidays.map((holiday, index) => (
                                             <TableRow key={index} className="hover:bg-slate-50/50">
                                                 <TableCell className="font-medium tabular-nums">{format(holiday.date, "dd/MM/yyyy")}</TableCell>
                                                 <TableCell className="text-slate-500">{format(holiday.date, "EEEE", { locale: vi })}</TableCell>
@@ -335,7 +332,7 @@ export default function SettingsPage() {
                                                 </TableCell>
                                             </TableRow>
                                         ))}
-                                        {filteredHolidays.filter(h => h.date >= new Date(new Date().getFullYear(), 0, 1)).length === 0 && (
+                                        {filteredHolidays.length === 0 && (
                                             <TableRow>
                                                 <TableCell colSpan={4} className="text-center text-slate-500 py-12">
                                                     <div className="flex flex-col items-center gap-2">
