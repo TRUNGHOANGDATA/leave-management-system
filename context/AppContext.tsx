@@ -86,6 +86,7 @@ interface AppContextType {
     addBulkUsers: (users: User[]) => Promise<void>;
     refreshData: () => Promise<void>;
     updateHoliday: (currentDate: string, newDate: string, newName: string) => Promise<void>;
+    importHolidays: (holidays: { date: string, name: string }[]) => Promise<void>;
 }
 
 const defaultSettings: AppSettings = {
@@ -115,7 +116,8 @@ const AppContext = createContext<AppContextType>({
     removeUser: async () => { },
     addBulkUsers: async () => { },
     refreshData: async () => { },
-    updateHoliday: async () => { }
+    updateHoliday: async () => { },
+    importHolidays: async () => { }
 });
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
@@ -349,6 +351,41 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             }
         } catch (e) {
             console.error("Exception updating holiday:", e);
+        }
+    };
+
+    const importHolidays = async (holidays: { date: string, name: string }[]) => {
+        if (holidays.length === 0) return;
+
+        // Optimistic update (might be tricky with upsert, but let's try to merge)
+        setSettings(prev => {
+            const newMap = new Map(prev.customHolidays.map(h => [h.date, h]));
+            holidays.forEach(h => {
+                newMap.set(h.date, { ...h, id: newMap.get(h.date)?.id }); // Keep ID if exists
+            });
+            return {
+                ...prev,
+                customHolidays: Array.from(newMap.values()).sort((a, b) => a.date.localeCompare(b.date))
+            };
+        });
+
+        try {
+            // Upsert to Supabase
+            // onConflict matches the unique constraint on 'date' column
+            const { error } = await supabase.from('public_holidays').upsert(
+                holidays,
+                { onConflict: 'date' }
+            );
+
+            if (error) {
+                console.error("Error importing holidays:", error);
+                refreshData(); // Revert
+                alert("Lỗi khi nhập ngày nghỉ lễ: " + error.message);
+            } else {
+                refreshData(); // Sync IDs
+            }
+        } catch (e) {
+            console.error("Exception importing holidays:", e);
         }
     };
 
@@ -641,7 +678,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const notificationCount = currentUser ? settings.notifications.filter(n => n.recipientId === currentUser.id && !n.isRead).length : 0;
 
     return (
-        <AppContext.Provider value={{ settings, currentUser, notificationCount, markNotificationRead, login, setWorkSchedule, addHoliday, removeHoliday, setHolidays, addLeaveRequest, updateLeaveRequestStatus, cancelLeaveRequest, setUsers, addUser, updateUser, removeUser, addBulkUsers, refreshData, updateHoliday }}>
+        <AppContext.Provider value={{ settings, currentUser, notificationCount, markNotificationRead, login, setWorkSchedule, addHoliday, removeHoliday, setHolidays, addLeaveRequest, updateLeaveRequestStatus, cancelLeaveRequest, setUsers, addUser, updateUser, removeUser, addBulkUsers, refreshData, updateHoliday, importHolidays }}>
             {children}
         </AppContext.Provider>
     );

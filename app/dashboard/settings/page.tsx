@@ -12,14 +12,15 @@ import { format } from "date-fns";
 import { vi } from "date-fns/locale";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Plus, Download, Trash2, Pencil } from "lucide-react";
+import { Plus, Download, Trash2, Pencil, Upload, FileSpreadsheet, FileDown } from "lucide-react";
+import * as XLSX from 'xlsx';
 import { EmailSettings } from "./EmailSettings";
 
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 
 export default function SettingsPage() {
-    const { settings, currentUser, setWorkSchedule, addHoliday, removeHoliday, updateHoliday } = useApp();
+    const { settings, currentUser, setWorkSchedule, addHoliday, removeHoliday, updateHoliday, importHolidays } = useApp();
     const router = useRouter();
     const currentYear = new Date().getFullYear();
     const [newHolidayName, setNewHolidayName] = useState("");
@@ -36,7 +37,15 @@ export default function SettingsPage() {
     }, [currentUser, router]);
 
     if (!currentUser || (currentUser.role !== 'admin' && currentUser.role !== 'director')) {
-        return <div className="p-8 text-center text-slate-500">Đang kiểm tra quyền truy cập...</div>;
+        return (
+            <div className="flex flex-col items-center justify-center p-12 text-center text-slate-500 bg-slate-50 rounded-lg border border-dashed m-8">
+                <div className="bg-slate-100 p-3 rounded-full mb-4">
+                    <Trash2 className="h-6 w-6 text-slate-400" />
+                </div>
+                <h3 className="text-lg font-medium text-slate-900">Không có quyền truy cập</h3>
+                <p className="max-w-sm mt-2 text-sm">Bạn cần quyền Admin hoặc Director để truy cập trang này.</p>
+            </div>
+        );
     }
 
     // Combine holidays for display
@@ -81,6 +90,8 @@ export default function SettingsPage() {
     };
 
     const handleDownloadNextYear = async () => {
+        if (!window.confirm("Bạn có chắc muốn tự động thêm các ngày nghỉ lễ mặc định cho năm sau không?")) return;
+
         const nextYear = currentYear + 1;
         const nextYearHolidays: { date: string, name: string }[] = [];
         FIXED_HOLIDAYS.forEach(h => {
@@ -93,9 +104,93 @@ export default function SettingsPage() {
             nextYearHolidays.push({ date: dateStr, name: "Nghỉ Lễ/Tết (Âm lịch)" });
         });
 
-        for (const h of nextYearHolidays) {
-            await addHoliday(new Date(h.date), h.name);
-        }
+        await importHolidays(nextYearHolidays); // Use import for bulk add
+    };
+
+    const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = (evt) => {
+            try {
+                const bstr = evt.target?.result;
+                const wb = XLSX.read(bstr, { type: 'binary' });
+                const wsname = wb.SheetNames[0];
+                const ws = wb.Sheets[wsname];
+                const data = XLSX.utils.sheet_to_json(ws, { header: 1 }) as any[][];
+
+                // Simple parsing assumption: Row 1 is header, Columns are Date | Name
+                // Better: find index of "Ngày" and "Tên"
+                if (data.length < 2) {
+                    alert("File không có dữ liệu!");
+                    return;
+                }
+
+                // convert data
+                const holidaysToImport: { date: string, name: string }[] = [];
+                // Skip header row (index 0)
+                for (let i = 1; i < data.length; i++) {
+                    const row = data[i];
+                    if (row.length >= 2) {
+                        let dateRaw = row[0]; // Could be string or excel date number
+                        let name = row[1];
+
+                        if (!dateRaw || !name) continue;
+
+                        let dateStr = "";
+                        if (typeof dateRaw === 'number') {
+                            // Excel serial date
+                            const dateObj = new Date(Math.round((dateRaw - 25569) * 86400 * 1000));
+                            dateStr = dateObj.toISOString().split('T')[0];
+                        } else {
+                            // Try parsing string (dd/MM/yyyy or yyyy-MM-dd)
+                            // Naive check
+                            if (String(dateRaw).includes('/')) {
+                                const parts = String(dateRaw).split('/');
+                                if (parts.length === 3) {
+                                    // dd/mm/yyyy -> yyyy-mm-dd
+                                    dateStr = `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+                                }
+                            } else {
+                                dateStr = String(dateRaw); // Assume ISO
+                            }
+                        }
+
+                        if (dateStr && name) {
+                            holidaysToImport.push({ date: dateStr, name: String(name).trim() });
+                        }
+                    }
+                }
+
+                if (holidaysToImport.length > 0) {
+                    importHolidays(holidaysToImport);
+                    alert(`Đã nhập thành công ${holidaysToImport.length} ngày nghỉ.`);
+                } else {
+                    alert("Không tìm thấy dữ liệu hợp lệ trong file Excel.");
+                }
+
+            } catch (error) {
+                console.error("Error parsing excel:", error);
+                alert("Lỗi đọc file Excel.");
+            }
+        };
+        reader.readAsBinaryString(file);
+        // Reset input
+        e.target.value = '';
+    };
+
+    const handleDownloadSample = () => {
+        const wb = XLSX.utils.book_new();
+        const ws_data = [
+            ["Ngày", "Tên ngày lễ"],
+            ["01/01/2026", "Tết Dương Lịch 2026"],
+            ["30/04/2026", "Ngày Giải phóng"],
+            ["02/09/2026", "Quốc khánh"]
+        ];
+        const ws = XLSX.utils.aoa_to_sheet(ws_data);
+        XLSX.utils.book_append_sheet(wb, ws, "Mau_Ngay_Le");
+        XLSX.writeFile(wb, "mau_nhap_ngay_le.xlsx");
     };
 
     const openEditDialog = (holiday: { date: Date, name: string, dateStr?: string }) => {
@@ -186,68 +281,109 @@ export default function SettingsPage() {
                     </Card>
 
                     <Card>
-                        <CardHeader className="flex flex-row items-center justify-between">
+                        <CardHeader className="flex flex-row items-center justify-between pb-2">
                             <div>
-                                <CardTitle>Danh sách ngày nghỉ lễ</CardTitle>
+                                <CardTitle className="text-xl">Danh sách ngày nghỉ lễ</CardTitle>
                                 <CardDescription>Quản lý ngày nghỉ lễ năm {currentYear} - {currentYear + 1}.</CardDescription>
                             </div>
-                            <Button variant="outline" size="sm" onClick={handleDownloadNextYear} className="gap-1">
-                                <Download className="h-4 w-4" /> Cập nhật ngày lễ
-                            </Button>
+                            <div className="flex gap-2">
+                                <Button variant="outline" size="sm" onClick={handleDownloadNextYear} className="gap-1 h-9">
+                                    <Download className="h-4 w-4" /> <span className="hidden sm:inline">Cập nhật mặc địa</span>
+                                </Button>
+                                <div className="relative">
+                                    <input
+                                        type="file"
+                                        accept=".xlsx, .xls"
+                                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                                        onChange={handleFileUpload}
+                                    />
+                                    <Button variant="outline" size="sm" className="gap-1 h-9">
+                                        <FileSpreadsheet className="h-4 w-4 text-green-600" /> <span className="hidden sm:inline">Nhập Excel</span>
+                                    </Button>
+                                </div>
+                                <Button variant="outline" size="sm" onClick={handleDownloadSample} className="gap-1 h-9">
+                                    <FileDown className="h-4 w-4 text-slate-500" /> <span className="hidden sm:inline">Tải file mẫu</span>
+                                </Button>
+                            </div>
                         </CardHeader>
                         <CardContent className="space-y-6">
-                            <div className="flex items-end gap-4 p-4 bg-slate-50 rounded-lg border border-slate-100">
-                                <div className="grid gap-2 flex-1">
-                                    <Label htmlFor="h-name">Tên ngày lễ</Label>
-                                    <Input id="h-name" placeholder="Ví dụ: Kỷ niệm thành lập công ty..." value={newHolidayName} onChange={(e) => setNewHolidayName(e.target.value)} />
+                            {/* Add Form */}
+                            <div className="bg-slate-50 p-4 rounded-lg border border-slate-100 flex flex-col sm:flex-row items-end gap-4 shadow-sm">
+                                <div className="grid gap-1.5 flex-1 w-full">
+                                    <Label htmlFor="h-name" className="text-xs font-semibold uppercase text-slate-500">Tên ngày lễ</Label>
+                                    <Input
+                                        id="h-name"
+                                        placeholder="Ví dụ: Kỷ niệm thành lập công ty..."
+                                        value={newHolidayName}
+                                        onChange={(e) => setNewHolidayName(e.target.value)}
+                                        className="bg-white"
+                                    />
                                 </div>
-                                <div className="grid gap-2 w-48">
-                                    <Label htmlFor="h-date">Ngày</Label>
-                                    <Input id="h-date" type="date" value={newHolidayDate} onChange={(e) => setNewHolidayDate(e.target.value)} />
+                                <div className="grid gap-1.5 w-full sm:w-48">
+                                    <Label htmlFor="h-date" className="text-xs font-semibold uppercase text-slate-500">Ngày</Label>
+                                    <Input
+                                        id="h-date"
+                                        type="date"
+                                        value={newHolidayDate}
+                                        onChange={(e) => setNewHolidayDate(e.target.value)}
+                                        className="bg-white"
+                                    />
                                 </div>
-                                <Button onClick={handleAddHoliday} disabled={!newHolidayName || !newHolidayDate}><Plus className="h-4 w-4 mr-2" /> Thêm</Button>
+                                <Button onClick={handleAddHoliday} disabled={!newHolidayName || !newHolidayDate} className="w-full sm:w-auto shrink-0 shadow-sm">
+                                    <Plus className="h-4 w-4 mr-2" /> Thêm
+                                </Button>
                             </div>
 
-                            <div className="rounded-md border max-h-[400px] overflow-auto relative scrollbar-track-transparent scrollbar-thumb-slate-200 hover:scrollbar-thumb-slate-300 scrollbar-thin">
-                                <table className="w-full caption-bottom text-sm">
-                                    <TableHeader className="bg-white">
-                                        <TableRow className="hover:bg-transparent">
-                                            <TableHead className="sticky top-0 z-20 bg-white">Ngày</TableHead>
-                                            <TableHead className="sticky top-0 z-20 bg-white">Thứ</TableHead>
-                                            <TableHead className="sticky top-0 z-20 bg-white">Tên ngày lễ</TableHead>
-                                            <TableHead className="sticky top-0 z-20 bg-white w-[100px]"></TableHead>
+                            {/* Holiday Table */}
+                            <div className="rounded-lg border overflow-hidden shadow-sm">
+                                <Table>
+                                    <TableHeader className="bg-slate-50">
+                                        <TableRow className="hover:bg-slate-50">
+                                            <TableHead className="font-semibold text-slate-700 w-[140px]">Ngày</TableHead>
+                                            <TableHead className="font-semibold text-slate-700 w-[120px]">Thứ</TableHead>
+                                            <TableHead className="font-semibold text-slate-700">Tên ngày lễ</TableHead>
+                                            <TableHead className="w-[100px] text-right">Thao tác</TableHead>
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
-                                        {upcomingHolidays.filter(h => h.date >= new Date()).map((holiday, index) => (
-                                            <TableRow key={index}>
-                                                <TableCell className="font-medium">{format(holiday.date, "dd/MM/yyyy")}</TableCell>
-                                                <TableCell>{format(holiday.date, "EEEE", { locale: vi })}</TableCell>
+                                        {upcomingHolidays.filter(h => h.date >= new Date(new Date().getFullYear(), 0, 1)).map((holiday, index) => (
+                                            <TableRow key={index} className="hover:bg-slate-50/50">
+                                                <TableCell className="font-medium tabular-nums">{format(holiday.date, "dd/MM/yyyy")}</TableCell>
+                                                <TableCell className="text-slate-500">{format(holiday.date, "EEEE", { locale: vi })}</TableCell>
                                                 <TableCell>
-                                                    {holiday.name}
-                                                    {holiday.isCustom && <span className="ml-2 px-1.5 py-0.5 text-[10px] bg-blue-100 text-blue-700 rounded-full font-bold">Custom</span>}
+                                                    <div className="flex items-center gap-2">
+                                                        <span>{holiday.name}</span>
+                                                        {holiday.isCustom && <span className="px-1.5 py-0.5 text-[10px] bg-blue-50 text-blue-600 border border-blue-100 rounded-md font-medium uppercase tracking-wider">Custom</span>}
+                                                    </div>
                                                 </TableCell>
-                                                <TableCell className="flex justify-end gap-1">
-                                                    {holiday.isCustom && holiday.dateStr && (
-                                                        <>
-                                                            <Button variant="ghost" size="icon" className="h-8 w-8 text-blue-500 hover:text-blue-700 hover:bg-blue-50" onClick={() => openEditDialog(holiday)}>
-                                                                <Pencil className="h-4 w-4" />
-                                                            </Button>
-                                                            <Button variant="ghost" size="icon" className="h-8 w-8 text-red-500 hover:text-red-700 hover:bg-red-50" onClick={() => removeHoliday(holiday.dateStr!)}>
-                                                                <Trash2 className="h-4 w-4" />
-                                                            </Button>
-                                                        </>
-                                                    )}
+                                                <TableCell className="text-right">
+                                                    <div className="flex justify-end gap-1 opacity-100 sm:opacity-0 hover:opacity-100 transition-opacity">
+                                                        {holiday.isCustom && holiday.dateStr && (
+                                                            <>
+                                                                <Button variant="ghost" size="icon" className="h-8 w-8 text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-full" onClick={() => openEditDialog(holiday)}>
+                                                                    <Pencil className="h-3.5 w-3.5" />
+                                                                </Button>
+                                                                <Button variant="ghost" size="icon" className="h-8 w-8 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-full" onClick={() => removeHoliday(holiday.dateStr!)}>
+                                                                    <Trash2 className="h-3.5 w-3.5" />
+                                                                </Button>
+                                                            </>
+                                                        )}
+                                                    </div>
                                                 </TableCell>
                                             </TableRow>
                                         ))}
-                                        {upcomingHolidays.filter(h => h.date >= new Date()).length === 0 && (
+                                        {upcomingHolidays.filter(h => h.date >= new Date(new Date().getFullYear(), 0, 1)).length === 0 && (
                                             <TableRow>
-                                                <TableCell colSpan={4} className="text-center text-muted-foreground py-6">Không có ngày nghỉ lễ sắp tới.</TableCell>
+                                                <TableCell colSpan={4} className="text-center text-slate-500 py-12">
+                                                    <div className="flex flex-col items-center gap-2">
+                                                        <FileSpreadsheet className="h-8 w-8 text-slate-300" />
+                                                        <p>Chưa có ngày nghỉ lễ nào. Hãy thêm mới hoặc nhập từ Excel.</p>
+                                                    </div>
+                                                </TableCell>
                                             </TableRow>
                                         )}
                                     </TableBody>
-                                </table>
+                                </Table>
                             </div>
                         </CardContent>
                     </Card>
