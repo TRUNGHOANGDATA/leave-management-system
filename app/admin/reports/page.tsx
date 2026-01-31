@@ -142,19 +142,40 @@ export default function ReportsPage() {
         return [{ name: 'Đã duyệt', value: approved }, { name: 'Từ chối', value: rejected }].filter(d => d.value > 0);
     }, [settings.leaveRequests, chartFromDate, chartToDate]);
 
-    // Weekday Analysis
+    // Weekday Analysis - only show working days based on workSchedule
     const weekdayData = useMemo(() => {
-        const days = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
+        const allDays = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
         const counts = [0, 0, 0, 0, 0, 0, 0];
+
+        // Determine working day indices based on workSchedule
+        // 0=Sunday, 1=Monday, 2=Tuesday, 3=Wednesday, 4=Thursday, 5=Friday, 6=Saturday
+        let workingDayIndices: number[] = [];
+        switch (settings.workSchedule) {
+            case 'mon-fri':
+                workingDayIndices = [1, 2, 3, 4, 5]; // Monday to Friday
+                break;
+            case 'mon-sat':
+            case 'mon-sat-morning':
+                workingDayIndices = [1, 2, 3, 4, 5, 6]; // Monday to Saturday
+                break;
+            default:
+                workingDayIndices = [1, 2, 3, 4, 5];
+        }
+
         chartFilteredRequests.forEach(r => {
             const start = parseISO(r.fromDate);
             const end = parseISO(r.toDate);
             eachDayOfInterval({ start, end }).forEach(d => {
-                counts[d.getDay()]++;
+                const dayIndex = d.getDay();
+                if (workingDayIndices.includes(dayIndex)) {
+                    counts[dayIndex]++;
+                }
             });
         });
-        return days.map((name, i) => ({ name, value: counts[i] }));
-    }, [chartFilteredRequests]);
+
+        // Return only working days
+        return workingDayIndices.map(i => ({ name: allDays[i], value: counts[i] }));
+    }, [chartFilteredRequests, settings.workSchedule]);
 
     // Calendar Data
     const calendarDays = useMemo(() => {
