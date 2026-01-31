@@ -12,7 +12,7 @@ import { format } from "date-fns";
 import { vi } from "date-fns/locale";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Download, Trash2, Pencil, Upload, FileSpreadsheet, FileDown, Search } from "lucide-react";
+import { Download, Trash2, Pencil, Upload, FileSpreadsheet, FileDown, Search, Plus } from "lucide-react";
 import * as XLSX from 'xlsx';
 import { EmailSettings } from "./EmailSettings";
 
@@ -26,8 +26,20 @@ export default function SettingsPage() {
 
     const [searchTerm, setSearchTerm] = useState("");
     const [editingHoliday, setEditingHoliday] = useState<{ originalDate: string, currentName: string, currentDate: string } | null>(null);
-    const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
     const [activeTab, setActiveTab] = useState("general");
+
+    // Manual Add State
+    const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+    const [newHolidayName, setNewHolidayName] = useState("");
+    const [newHolidayDate, setNewHolidayDate] = useState("");
+
+    const handleManualAdd = async () => {
+        if (!newHolidayDate || !newHolidayName) return;
+        await addHoliday(new Date(newHolidayDate), newHolidayName);
+        setNewHolidayName("");
+        setNewHolidayDate("");
+        setIsAddDialogOpen(false);
+    };
 
     // Redirect if not admin or director
     useEffect(() => {
@@ -265,6 +277,9 @@ export default function SettingsPage() {
                                 <Button variant="outline" size="sm" onClick={handleDownloadSample} className="gap-1 h-9">
                                     <FileDown className="h-4 w-4 text-slate-500" /> <span className="hidden sm:inline">Tải file mẫu</span>
                                 </Button>
+                                <Button size="sm" onClick={() => setIsAddDialogOpen(true)} className="gap-1 h-9">
+                                    <Plus className="h-4 w-4" /> <span className="hidden sm:inline">Thêm ngày lễ</span>
+                                </Button>
                             </div>
                         </CardHeader>
                         <CardContent className="space-y-6">
@@ -371,6 +386,45 @@ export default function SettingsPage() {
                     <DialogFooter>
                         <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>Hủy</Button>
                         <Button onClick={handleSaveEdit}>Lưu thay đổi</Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Thêm ngày nghỉ lễ mới</DialogTitle>
+                        <DialogDescription>Nhập thông tin ngày nghỉ lễ để thêm vào hệ thống.</DialogDescription>
+                    </DialogHeader>
+                    <div className="grid gap-4 py-4">
+                        <div className="grid grid-cols-4 items-center gap-4">
+                            <Label htmlFor="new-name" className="text-right">
+                                Tên
+                            </Label>
+                            <Input
+                                id="new-name"
+                                value={newHolidayName}
+                                onChange={(e) => setNewHolidayName(e.target.value)}
+                                className="col-span-3"
+                                placeholder="Ví dụ: Giỗ tổ Hùng Vương"
+                            />
+                        </div>
+                        <div className="grid grid-cols-4 items-center gap-4">
+                            <Label htmlFor="new-date" className="text-right">
+                                Ngày
+                            </Label>
+                            <Input
+                                id="new-date"
+                                type="date"
+                                value={newHolidayDate}
+                                onChange={(e) => setNewHolidayDate(e.target.value)}
+                                className="col-span-3"
+                            />
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>Hủy</Button>
+                        <Button onClick={handleManualAdd} disabled={!newHolidayName || !newHolidayDate}>Thêm mới</Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
