@@ -499,10 +499,10 @@ export default function EmployeeManagementPage() {
                     .map(c => parseInt(c?.split("_")[1] || "0"));
                 let maxCode = currentCodes.length > 0 ? Math.max(...currentCodes) : 0;
 
-                // Headers: STT(0), Name(1), Email(2), Dept(3), Location(4), JobTitle(5), Role(6), ManagerEmail(7)
+                // Headers: STT(0), Name(1), Email(2), Dept(3), Location(4), JobTitle(5), Role(6), ManagerEmail(7), StartDate(8)
                 // Start from row 1 (skip header)
                 const newUsers: User[] = [];
-                const usersToUpdate: { id: string; email: string; department: string; workLocation: string; jobTitle: string; role: UserRole; managerEmail: string }[] = [];
+                const usersToUpdate: { id: string; email: string; department: string; workLocation: string; jobTitle: string; role: UserRole; managerEmail: string; startDate?: string }[] = [];
 
                 for (let i = 1; i < data.length; i++) {
                     const row: any = data[i];
@@ -515,6 +515,29 @@ export default function EmployeeManagementPage() {
                     const jobTitleStr = String(row[5] || "").trim();
                     const roleStr = String(row[6] || "").trim().toLowerCase();
                     const managerEmail = String(row[7] || "").trim().toLowerCase();
+
+                    // Parse Start Date (Column 8)
+                    let startDate: string | undefined = undefined;
+                    const startDateRaw = row[8];
+                    if (startDateRaw) {
+                        // Handle Excel Serial Date or String
+                        if (typeof startDateRaw === 'number') {
+                            // Excel serial date to JS Date
+                            const date = new Date(Math.round((startDateRaw - 25569) * 86400 * 1000));
+                            startDate = date.toISOString();
+                        } else {
+                            // Try parsing string YYYY-MM-DD or DD/MM/YYYY
+                            const dateStr = String(startDateRaw).trim();
+                            // Simple check for YYYY-MM-DD
+                            if (dateStr.match(/^\d{4}-\d{2}-\d{2}$/)) {
+                                startDate = new Date(dateStr).toISOString();
+                            } else if (dateStr.match(/^\d{1,2}\/\d{1,2}\/\d{4}$/)) {
+                                // DD/MM/YYYY
+                                const parts = dateStr.split('/');
+                                startDate = new Date(`${parts[2]}-${parts[1]}-${parts[0]}`).toISOString();
+                            }
+                        }
+                    }
 
                     // Map Role
                     let role: UserRole = 'employee';
@@ -536,7 +559,8 @@ export default function EmployeeManagementPage() {
                             workLocation: location || existingUser.workLocation || '',
                             jobTitle: jobTitleStr || existingUser.jobTitle || '',
                             role: role,
-                            managerEmail: managerEmail
+                            managerEmail: managerEmail,
+                            startDate: startDate // Update start date if provided
                         });
                         updateCount++;
                     } else {
@@ -548,7 +572,7 @@ export default function EmployeeManagementPage() {
                         maxCode++;
                         const newCode = `NV_${String(maxCode).padStart(4, "0")}`;
 
-                        // Add to Batch Array (without managerId for now, will update in pass 2)
+                        // Add to Batch Array
                         newUsers.push({
                             id: "", // Placeholder
                             name: toTitleCase(name),
@@ -559,6 +583,7 @@ export default function EmployeeManagementPage() {
                             role: role,
                             managerId: undefined, // Will be resolved after insert
                             employeeCode: newCode,
+                            startDate: startDate, // Add start date
                             _tempManagerEmail: managerEmail // Temp field
                         } as any);
 
@@ -571,54 +596,50 @@ export default function EmployeeManagementPage() {
                     await addBulkUsers(newUsers);
                 }
 
-                // Pass 2: Batch Update EXISTING users (department, jobTitle, role, workLocation)
+                // Pass 2: Batch Update EXISTING users
                 if (usersToUpdate.length > 0) {
                     for (const u of usersToUpdate) {
+                        const updateData: any = {
+                            department: u.department,
+                            work_location: u.workLocation,
+                            job_title: u.jobTitle,
+                            role: u.role
+                        };
+                        if (u.startDate) updateData.start_date = u.startDate;
+
                         await supabase
                             .from('users')
-                            .update({
-                                department: u.department,
-                                work_location: u.workLocation,
-                                job_title: u.jobTitle,
-                                role: u.role
-                            })
+                            .update(updateData)
                             .eq('id', u.id);
                     }
                 }
 
-                // Pass 3: Update manager IDs using fresh DB data (for both new and updated users)
+                // Pass 3: Update manager IDs...
                 const { data: freshUsers, error: fetchError } = await supabase
                     .from('users')
                     .select('id, email');
 
                 if (!fetchError && freshUsers) {
-                    // Update managers for new users
+                    // ... existing manager update logic ...
                     for (const newUser of newUsers) {
                         const managerEmail = (newUser as any)._tempManagerEmail;
                         if (managerEmail) {
                             const manager = freshUsers.find((fu: { id: string, email: string }) => fu.email?.toLowerCase() === managerEmail);
                             const createdUser = freshUsers.find((fu: { id: string, email: string }) => fu.email === newUser.email);
                             if (manager && createdUser) {
-                                await supabase
-                                    .from('users')
-                                    .update({ manager_id: manager.id })
-                                    .eq('id', createdUser.id);
+                                await supabase.from('users').update({ manager_id: manager.id }).eq('id', createdUser.id);
                             }
                         }
                     }
-                    // Update managers for updated users
                     for (const upUser of usersToUpdate) {
                         if (upUser.managerEmail) {
                             const manager = freshUsers.find((fu: { id: string, email: string }) => fu.email?.toLowerCase() === upUser.managerEmail);
                             if (manager) {
-                                await supabase
-                                    .from('users')
-                                    .update({ manager_id: manager.id })
-                                    .eq('id', upUser.id);
+                                await supabase.from('users').update({ manager_id: manager.id }).eq('id', upUser.id);
                             }
                         }
                     }
-                    // Final refresh to show updated data
+                    // Final refresh
                     await refreshData();
                 }
 
@@ -641,15 +662,15 @@ export default function EmployeeManagementPage() {
     const triggerUpload = () => fileInputRef.current?.click();
 
     const downloadTemplate = () => {
-        const headers = ["STT", "Họ và tên", "Email", "Phòng ban", "Khoa/Vị trí", "Chức danh", "Chức vụ (Role)", "Email Quản lý"];
+        const headers = ["STT", "Họ và tên", "Email", "Phòng ban", "Khoa/Vị trí", "Chức danh", "Chức vụ (Role)", "Email Quản lý", "Ngày vào làm (YYYY-MM-DD or DD/MM/YYYY)"];
         const ws = XLSX.utils.aoa_to_sheet([headers]);
-        ws['!cols'] = [{ wch: 5 }, { wch: 25 }, { wch: 30 }, { wch: 20 }, { wch: 15 }, { wch: 40 }, { wch: 15 }, { wch: 30 }];
+        ws['!cols'] = [{ wch: 5 }, { wch: 25 }, { wch: 30 }, { wch: 20 }, { wch: 15 }, { wch: 40 }, { wch: 15 }, { wch: 30 }, { wch: 20 }];
 
         // Add sample data
         XLSX.utils.sheet_add_aoa(ws, [
-            ["1", "Nguyễn Văn A", "a@company.com", "Phòng Kinh Doanh", "Sài Gòn", "Nhân viên kinh doanh", "Nhân viên", "manager@company.com"],
-            ["2", "Trần Thị B", "manager@company.com", "Phòng Kinh Doanh", "Hà Nội", "Trưởng phòng Kinh doanh", "Quản lý", "director@company.com"],
-            ["3", "Lê Văn C", "director@company.com", "Ban Giám Đốc", "Văn phòng chính", "Tổng Giám Đốc kiêm Chủ Tịch HĐQT", "Giám đốc", ""]
+            ["1", "Nguyễn Văn A", "a@company.com", "Phòng Kinh Doanh", "Sài Gòn", "Nhân viên kinh doanh", "Nhân viên", "manager@company.com", "2024-01-15"],
+            ["2", "Trần Thị B", "manager@company.com", "Phòng Kinh Doanh", "Hà Nội", "Trưởng phòng Kinh doanh", "Quản lý", "director@company.com", "2023-05-01"],
+            ["3", "Lê Văn C", "director@company.com", "Ban Giám Đốc", "Văn phòng chính", "Tổng Giám Đốc kiêm Chủ Tịch HĐQT", "Giám đốc", "", "2020-01-01"]
         ], { origin: "A2" });
 
         const wb = XLSX.utils.book_new();
