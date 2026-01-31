@@ -12,7 +12,7 @@ import { format } from "date-fns";
 import { vi } from "date-fns/locale";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Plus, Download, Trash2, Pencil, Upload, FileSpreadsheet, FileDown } from "lucide-react";
+import { Download, Trash2, Pencil, Upload, FileSpreadsheet, FileDown, Search } from "lucide-react";
 import * as XLSX from 'xlsx';
 import { EmailSettings } from "./EmailSettings";
 
@@ -23,8 +23,8 @@ export default function SettingsPage() {
     const { settings, currentUser, setWorkSchedule, addHoliday, removeHoliday, updateHoliday, importHolidays } = useApp();
     const router = useRouter();
     const currentYear = new Date().getFullYear();
-    const [newHolidayName, setNewHolidayName] = useState("");
-    const [newHolidayDate, setNewHolidayDate] = useState("");
+
+    const [searchTerm, setSearchTerm] = useState("");
     const [editingHoliday, setEditingHoliday] = useState<{ originalDate: string, currentName: string, currentDate: string } | null>(null);
     const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
     const [activeTab, setActiveTab] = useState("general");
@@ -82,30 +82,9 @@ export default function SettingsPage() {
 
     const upcomingHolidays = getHolidaysForYear(currentYear).concat(getHolidaysForYear(currentYear + 1));
 
-    const handleAddHoliday = () => {
-        if (!newHolidayDate || !newHolidayName) return;
-        addHoliday(new Date(newHolidayDate), newHolidayName);
-        setNewHolidayName("");
-        setNewHolidayDate("");
-    };
-
-    const handleDownloadNextYear = async () => {
-        if (!window.confirm("Bạn có chắc muốn tự động thêm các ngày nghỉ lễ mặc định cho năm sau không?")) return;
-
-        const nextYear = currentYear + 1;
-        const nextYearHolidays: { date: string, name: string }[] = [];
-        FIXED_HOLIDAYS.forEach(h => {
-            const date = new Date(nextYear, h.month, h.date);
-            const dateStr = format(date, "yyyy-MM-dd");
-            nextYearHolidays.push({ date: dateStr, name: h.name });
-        });
-        const lunarDates = LUNAR_HOLIDAYS_SOLAR[nextYear] || [];
-        lunarDates.forEach(dateStr => {
-            nextYearHolidays.push({ date: dateStr, name: "Nghỉ Lễ/Tết (Âm lịch)" });
-        });
-
-        await importHolidays(nextYearHolidays); // Use import for bulk add
-    };
+    const filteredHolidays = upcomingHolidays.filter(h =>
+        h.name.toLowerCase().includes(searchTerm.toLowerCase())
+    );
 
     const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -287,9 +266,6 @@ export default function SettingsPage() {
                                 <CardDescription>Quản lý ngày nghỉ lễ năm {currentYear} - {currentYear + 1}.</CardDescription>
                             </div>
                             <div className="flex gap-2">
-                                <Button variant="outline" size="sm" onClick={handleDownloadNextYear} className="gap-1 h-9">
-                                    <Download className="h-4 w-4" /> <span className="hidden sm:inline">Cập nhật mặc địa</span>
-                                </Button>
                                 <div className="relative">
                                     <input
                                         type="file"
@@ -307,31 +283,16 @@ export default function SettingsPage() {
                             </div>
                         </CardHeader>
                         <CardContent className="space-y-6">
-                            {/* Add Form */}
-                            <div className="bg-slate-50 p-4 rounded-lg border border-slate-100 flex flex-col sm:flex-row items-end gap-4 shadow-sm">
-                                <div className="grid gap-1.5 flex-1 w-full">
-                                    <Label htmlFor="h-name" className="text-xs font-semibold uppercase text-slate-500">Tên ngày lễ</Label>
-                                    <Input
-                                        id="h-name"
-                                        placeholder="Ví dụ: Kỷ niệm thành lập công ty..."
-                                        value={newHolidayName}
-                                        onChange={(e) => setNewHolidayName(e.target.value)}
-                                        className="bg-white"
-                                    />
-                                </div>
-                                <div className="grid gap-1.5 w-full sm:w-48">
-                                    <Label htmlFor="h-date" className="text-xs font-semibold uppercase text-slate-500">Ngày</Label>
-                                    <Input
-                                        id="h-date"
-                                        type="date"
-                                        value={newHolidayDate}
-                                        onChange={(e) => setNewHolidayDate(e.target.value)}
-                                        className="bg-white"
-                                    />
-                                </div>
-                                <Button onClick={handleAddHoliday} disabled={!newHolidayName || !newHolidayDate} className="w-full sm:w-auto shrink-0 shadow-sm">
-                                    <Plus className="h-4 w-4 mr-2" /> Thêm
-                                </Button>
+                            {/* Search Filter */}
+                            <div className="relative">
+                                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-500" />
+                                <Input
+                                    type="search"
+                                    placeholder="Tìm kiếm ngày nghỉ lễ..."
+                                    className="pl-9 bg-slate-50 border-slate-200"
+                                    value={searchTerm}
+                                    onChange={(e) => setSearchTerm(e.target.value)}
+                                />
                             </div>
 
                             {/* Holiday Table */}
@@ -346,7 +307,7 @@ export default function SettingsPage() {
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
-                                        {upcomingHolidays.filter(h => h.date >= new Date(new Date().getFullYear(), 0, 1)).map((holiday, index) => (
+                                        {filteredHolidays.filter(h => h.date >= new Date(new Date().getFullYear(), 0, 1)).map((holiday, index) => (
                                             <TableRow key={index} className="hover:bg-slate-50/50">
                                                 <TableCell className="font-medium tabular-nums">{format(holiday.date, "dd/MM/yyyy")}</TableCell>
                                                 <TableCell className="text-slate-500">{format(holiday.date, "EEEE", { locale: vi })}</TableCell>
@@ -372,12 +333,12 @@ export default function SettingsPage() {
                                                 </TableCell>
                                             </TableRow>
                                         ))}
-                                        {upcomingHolidays.filter(h => h.date >= new Date(new Date().getFullYear(), 0, 1)).length === 0 && (
+                                        {filteredHolidays.filter(h => h.date >= new Date(new Date().getFullYear(), 0, 1)).length === 0 && (
                                             <TableRow>
                                                 <TableCell colSpan={4} className="text-center text-slate-500 py-12">
                                                     <div className="flex flex-col items-center gap-2">
-                                                        <FileSpreadsheet className="h-8 w-8 text-slate-300" />
-                                                        <p>Chưa có ngày nghỉ lễ nào. Hãy thêm mới hoặc nhập từ Excel.</p>
+                                                        <Search className="h-8 w-8 text-slate-300" />
+                                                        <p>{searchTerm ? "Không tìm thấy ngày nghỉ lễ nào phù hợp." : "Chưa có ngày nghỉ lễ nào. Hãy nhập từ Excel."}</p>
                                                     </div>
                                                 </TableCell>
                                             </TableRow>
