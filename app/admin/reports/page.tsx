@@ -26,6 +26,7 @@ export default function ReportsPage() {
     const [chartFromDate, setChartFromDate] = useState(format(startOfMonth(new Date()), 'yyyy-MM-dd'));
     const [chartToDate, setChartToDate] = useState(format(endOfMonth(new Date()), 'yyyy-MM-dd'));
     const [selectedDay, setSelectedDay] = useState<{ date: Date; leaves: { name: string; department: string; fromDate: string; toDate: string }[] } | null>(null);
+    const [selectedEmployee, setSelectedEmployee] = useState<{ userId: string; name: string; department: string } | null>(null);
 
     const filteredData = useMemo(() => {
         if (!settings.users || !currentUser) return { users: [], requests: [] };
@@ -108,11 +109,25 @@ export default function ReportsPage() {
         return Object.entries(userDays)
             .map(([userId, days]) => {
                 const user = settings.users.find(u => u.id === userId);
-                return { name: user?.name || 'Unknown', department: user?.department || '', days };
+                return { userId, name: user?.name || 'Unknown', department: user?.department || '', days };
             })
             .sort((a, b) => b.days - a.days)
             .slice(0, 5);
     }, [chartFilteredRequests, settings.users]);
+
+    // Get employee leaves for dialog
+    const employeeLeaves = useMemo(() => {
+        if (!selectedEmployee) return [];
+        return chartFilteredRequests
+            .filter(r => r.userId === selectedEmployee.userId)
+            .map(r => ({
+                fromDate: r.fromDate,
+                toDate: r.toDate,
+                type: r.type,
+                duration: r.duration || 1
+            }))
+            .sort((a, b) => parseISO(b.fromDate).getTime() - parseISO(a.fromDate).getTime());
+    }, [selectedEmployee, chartFilteredRequests]);
 
     // Approval Rate
     const approvalRateData = useMemo(() => {
@@ -374,9 +389,13 @@ export default function ReportsPage() {
                                 <div className="space-y-2">
                                     {topLeaveTakers.length === 0 && <p className="text-sm text-slate-500">Không có dữ liệu</p>}
                                     {topLeaveTakers.map((t, i) => (
-                                        <div key={i} className="flex items-center justify-between p-2 bg-slate-50 rounded-md border">
+                                        <div
+                                            key={i}
+                                            className="flex items-center justify-between p-2 bg-slate-50 rounded-md border cursor-pointer hover:bg-blue-50 hover:border-blue-200 transition-colors"
+                                            onClick={() => setSelectedEmployee({ userId: t.userId, name: t.name, department: t.department })}
+                                        >
                                             <div>
-                                                <span className="font-medium text-slate-800">{i + 1}. {t.name}</span>
+                                                <span className="font-medium text-blue-600 hover:underline">{i + 1}. {t.name}</span>
                                                 <span className="text-xs text-slate-500 ml-2">({t.department})</span>
                                             </div>
                                             <span className="text-sm font-bold text-orange-600">{t.days} ngày</span>
@@ -466,6 +485,32 @@ export default function ReportsPage() {
                                 <div className="text-xs text-slate-500">
                                     Nghỉ từ <span className="font-medium text-slate-700">{format(parseISO(l.fromDate), 'dd/MM/yyyy')}</span> đến <span className="font-medium text-slate-700">{format(parseISO(l.toDate), 'dd/MM/yyyy')}</span>
                                 </div>
+                            </div>
+                        ))}
+                    </div>
+                </DialogContent>
+            </Dialog>
+
+            {/* Dialog for Employee Leave Details */}
+            <Dialog open={!!selectedEmployee} onOpenChange={() => setSelectedEmployee(null)}>
+                <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                        <DialogTitle>
+                            Chi tiết nghỉ phép - {selectedEmployee?.name}
+                            <span className="text-sm font-normal text-slate-500 ml-2">({selectedEmployee?.department})</span>
+                        </DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-2 max-h-[300px] overflow-auto">
+                        {employeeLeaves.length === 0 && <p className="text-sm text-slate-500">Không có dữ liệu trong khoảng thời gian đã chọn</p>}
+                        {employeeLeaves.map((l, i) => (
+                            <div key={i} className="p-3 bg-slate-50 rounded-md border space-y-1">
+                                <div className="flex justify-between items-center">
+                                    <span className="text-sm font-medium text-slate-800">
+                                        {format(parseISO(l.fromDate), 'dd/MM/yyyy')} - {format(parseISO(l.toDate), 'dd/MM/yyyy')}
+                                    </span>
+                                    <span className="text-xs bg-orange-100 text-orange-700 px-2 py-0.5 rounded">{l.duration} ngày</span>
+                                </div>
+                                <div className="text-xs text-slate-500">{l.type}</div>
                             </div>
                         ))}
                     </div>
