@@ -93,9 +93,16 @@ export default function LeaveRequestPage() {
         return { annualLeaveUsed: annualUsed, unpaidLeaveUsed: unpaidUsed };
     }, [settings.leaveRequests, currentUser, currentYear]);
 
-    const annualLeaveTotal = 12;
-    const leaveLeft = Math.max(0, annualLeaveTotal - annualLeaveUsed);
-    const leaveLeftPercent = Math.round((leaveLeft / annualLeaveTotal) * 100);
+    // Use Dynamic Balance from AppContext
+    const leaveLeft = currentUser?.annualLeaveRemaining || 0;
+
+    // Entitlement = Remaining + Used. 
+    // This correctly reflects the "Accrued" amount for new employees, or 12 for full-year employees.
+    const currentEntitlement = leaveLeft + annualLeaveUsed;
+
+    const leaveLeftPercent = currentEntitlement > 0
+        ? Math.round((leaveLeft / currentEntitlement) * 100)
+        : 0;
 
     // Get Recent History
     const recentHistory = useMemo(() => {
@@ -684,7 +691,7 @@ export default function LeaveRequestPage() {
                                 <Progress value={leaveLeftPercent} className="h-2.5 bg-indigo-100" />
                                 <div className="flex justify-between items-baseline mt-2">
                                     <span className="text-3xl font-bold text-indigo-700">{leaveLeft}</span>
-                                    <span className="text-xs text-slate-500">/ 12 ngày tổng cộng</span>
+                                    <span className="text-xs text-slate-500">/ {currentEntitlement} ngày có thể dùng</span>
                                 </div>
                             </div>
                             <div className="text-xs text-slate-500 bg-white rounded-md p-2 border border-indigo-100 space-y-1.5">
