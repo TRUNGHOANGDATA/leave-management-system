@@ -6,6 +6,7 @@ import { Progress } from "@/components/ui/progress";
 import { CalendarDays, Clock, FilePlus, ArrowRight, UserCheck } from "lucide-react";
 import Link from "next/link";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { calculateEntitlement } from "@/lib/leave-utils";
 import { useApp } from "@/context/AppContext";
 import { FIXED_HOLIDAYS, LUNAR_HOLIDAYS_SOLAR } from "@/lib/holidays";
 import { format, differenceInDays, startOfDay, getYear, addYears } from "date-fns";
@@ -97,11 +98,13 @@ export default function Dashboard() {
             .slice(0, 3);
     }, [settings.leaveRequests, currentUser]);
 
-    // Use Dynamic Balance from AppContext (calculated in refreshData)
-    const leaveLeft = currentUser?.annualLeaveRemaining || 0;
+    // Use standardized Entitlement logic
+    const currentEntitlement = calculateEntitlement(currentUser);
 
-    // Entitlement = Remaining + Used. This correctly reflects "Accrued" amount.
-    const currentEntitlement = leaveLeft + annualLeaveUsed;
+    // Calculate Remaining based on Entitlement - Used
+    // We do NOT use currentUser.annualLeaveRemaining from DB here to avoid sync issues.
+    // The Dashboard should reflect the instantaneous calculation.
+    const leaveLeft = Math.max(0, currentEntitlement - annualLeaveUsed);
 
     const leaveLeftPercent = currentEntitlement > 0
         ? Math.round((leaveLeft / currentEntitlement) * 100)
