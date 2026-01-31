@@ -145,42 +145,51 @@ export default function ReportsPage() {
         return Object.entries(months).map(([name, value]) => ({ name, value }));
     }, [chartFilteredRequests]);
 
-    // --- Helper: Calculate Annual Leave Entitlement (Pro-rated) ---
+    // --- Helper: Calculate Annual Leave Entitlement (Anniversary-Based) ---
+    // Logic:
+    // - Leave does NOT carry over between years.
+    // - Before 1-year anniversary: Accrue 1 day per month worked in the CURRENT year.
+    // - After 1-year anniversary: Full 12 days for the current year.
     const calculateEntitlement = (user: any) => {
-        const currentYear = new Date().getFullYear();
+        const now = new Date();
+        const currentYear = now.getFullYear();
+        const currentMonth = now.getMonth(); // 0-11
+
         // Default to 12 if no startDate
         if (!user.start_date && !user.startDate && !user.createdAt) return 12;
 
         let dateStr = user.start_date || user.startDate || user.createdAt;
         let start = new Date(dateStr);
 
-        // Try parsing DD/MM/YYYY if standard parse invalid or looks wrong
+        // Try parsing DD/MM/YYYY if standard parse invalid
         if (isNaN(start.getTime()) && typeof dateStr === 'string' && dateStr.includes('/')) {
             const parts = dateStr.split('/');
             if (parts.length === 3) {
-                // DD/MM/YYYY
                 start = new Date(`${parts[2]}-${parts[1]}-${parts[0]}`);
             }
         }
 
-        if (isNaN(start.getTime())) return 12;
+        if (isNaN(start.getTime())) return 12; // Invalid date fallback
 
-        const joinYear = start.getFullYear();
+        // Calculate Anniversary Date (1 year after start)
+        const anniversaryDate = new Date(start);
+        anniversaryDate.setFullYear(anniversaryDate.getFullYear() + 1);
 
-        if (joinYear < currentYear) return 12;
-        if (joinYear > currentYear) return 0; // Future employee?
+        // If current date is on or after the 1-year anniversary: Full 12 days
+        if (now >= anniversaryDate) {
+            return 12;
+        }
 
-        // Joined this year: Accrual Basis (1 day per month worked)
-        // Example: Join Jan (0). Current Jan (0). Entitlement = 0 - 0 + 1 = 1 day.
-        // Example: Join Jan (0). Current Feb (1). Entitlement = 1 - 0 + 1 = 2 days.
-        const currentMonth = new Date().getMonth(); // 0-11
-        const startMonth = start.getMonth(); // 0-11
+        // Before anniversary: Accrue 1 day per month worked in the CURRENT year
+        const startYearInCurrent = start.getFullYear() === currentYear;
+        const startMonthInYear = startYearInCurrent ? start.getMonth() : 0;
 
-        // If startMonth > currentMonth, they haven't started yet relative to now (future in current year), so 0.
-        if (startMonth > currentMonth) return 0;
+        if (startYearInCurrent && start.getMonth() > currentMonth) {
+            return 0; // Haven't started yet this year
+        }
 
-        const accrued = currentMonth - startMonth + 1;
-        return Math.min(12, Math.max(0, accrued));
+        const monthsWorkedThisYear = currentMonth - startMonthInYear + 1;
+        return Math.min(12, Math.max(0, monthsWorkedThisYear));
     };
 
     // Employees with low leave balance (< 5 days) - DYNAMIC CALCULATION
