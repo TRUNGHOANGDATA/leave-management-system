@@ -1,16 +1,20 @@
 "use client";
 
-import { useApp, User } from "@/context/AppContext";
+import { useApp, User, LeaveRequest } from "@/context/AppContext";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { Loader2 } from "lucide-react";
 
 export default function DashboardLayoutClient({
     children,
-    initialUser
+    initialUser,
+    initialUsers,
+    initialRequests
 }: {
     children: React.ReactNode;
     initialUser: User | null;
+    initialUsers?: User[];
+    initialRequests?: LeaveRequest[];
 }) {
     const { currentUser, isLoading, setData } = useApp();
     const router = useRouter();
@@ -18,7 +22,11 @@ export default function DashboardLayoutClient({
     // HYDRATION: If server passed a user, set it immediately
     useEffect(() => {
         if (initialUser && !currentUser) {
-            setData(initialUser);
+            setData({
+                user: initialUser,
+                users: initialUsers,
+                leaveRequests: initialRequests
+            });
         }
     }, [initialUser]);
 

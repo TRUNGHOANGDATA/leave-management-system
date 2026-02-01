@@ -93,7 +93,7 @@ interface AppContextType {
     refreshData: () => Promise<void>;
     updateHoliday: (currentDate: string, newDate: string, newName: string) => Promise<void>;
     importHolidays: (holidays: { date: string, name: string }[]) => Promise<void>;
-    setData: (user: User | null) => void; // Allow manual hydration
+    setData: (data: { user?: User | null, users?: User[], leaveRequests?: LeaveRequest[] }) => void; // Allow manual hydration
 }
 
 const defaultSettings: AppSettings = {
@@ -485,12 +485,20 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         window.location.href = "/api/auth/signout";
     };
 
-    const setData = (user: User | null) => {
-        if (user) {
-            console.log("Hydrating user data from Server Component:", user.email);
-            setCurrentUser(user);
-            setIsLoading(false);
+    const setData = (data: { user?: User | null, users?: User[], leaveRequests?: LeaveRequest[] }) => {
+        if (data.user) {
+            console.log("Hydrating user data...");
+            setCurrentUser(data.user);
         }
+        if (data.users) {
+            console.log(`Hydrating ${data.users.length} users...`);
+            setSettings(prev => ({ ...prev, users: data.users || [] }));
+        }
+        if (data.leaveRequests) {
+            console.log(`Hydrating ${data.leaveRequests.length} leave requests...`);
+            setSettings(prev => ({ ...prev, leaveRequests: data.leaveRequests || [] }));
+        }
+        setIsLoading(false);
     };
 
     const setWorkSchedule = (schedule: WorkScheduleType) => {

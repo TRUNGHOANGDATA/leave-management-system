@@ -1,7 +1,8 @@
 import { createClient } from '@/utils/supabase/server'
+import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { redirect } from 'next/navigation'
 import DashboardLayoutClient from './DashboardLayoutClient'
-import { User } from '@/context/AppContext'
+import { User, LeaveRequest } from '@/context/AppContext'
 
 export default async function DashboardLayout({
     children,
@@ -19,36 +20,85 @@ export default async function DashboardLayout({
         redirect('/login')
     }
 
-    // 2. Fetch Profile for Hydration (Fix "Loading..." hang)
-    let initialUser: User | null = null;
-    try {
-        const { data: profile } = await supabase
-            .from('users')
-            .select('*')
-            .eq('auth_id', user.id)
-            .single()
+    // Initialize Admin Client (Bypass RLS for Directory)
+    const adminSupabase = createAdminClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.SUPABASE_SERVICE_ROLE_KEY!,
+        { auth: { persistSession: false } }
+    );
 
-        if (profile) {
-            initialUser = {
-                id: profile.id,
-                auth_id: profile.auth_id,
-                email: profile.email,
-                name: profile.name || profile.email?.split('@')[0] || "User",
-                role: profile.role,
-                department: profile.department || "",
-                managerId: profile.manager_id,
-                avatarUrl: profile.avatar_url,
-                employeeCode: profile.employee_code,
-                workLocation: profile.work_location,
-                startDate: profile.start_date,
-                jobTitle: profile.job_title,
-                phone: profile.phone,
-                annualLeaveRemaining: 0 // Placeholder, client will calculate with requests
-            };
-        }
-    } catch (error) {
-        console.error("Layout Profile Fetch Error:", error);
+    // 2. Parallel Fetching for Hydration
+    const [profileRes, usersRes, requestsRes] = await Promise.all([
+        supabase.from('users').select('*').eq('auth_id', user.id).single(),
+        adminSupabase.from('users').select('*').order('name'),
+        supabase.from('leave_requests').select('*').order('created_at', { ascending: false })
+    ]);
+
+    // 3. Map User Profile
+    let initialUser: User | null = null;
+    if (profileRes.data) {
+        const p = profileRes.data;
+        initialUser = {
+            id: p.id,
+            auth_id: p.auth_id,
+            email: p.email,
+            name: p.name || p.email?.split('@')[0] || "User",
+            role: p.role,
+            department: p.department || "",
+            managerId: p.manager_id,
+            avatarUrl: p.avatar_url,
+            employeeCode: p.employee_code,
+            workLocation: p.work_location,
+            startDate: p.start_date,
+            jobTitle: p.job_title,
+            phone: p.phone,
+            annualLeaveRemaining: 0
+        };
     }
 
-    return <DashboardLayoutClient initialUser={initialUser}>{children}</DashboardLayoutClient>
+    // 4. Map Users Directory
+    const initialUsers: User[] = (usersRes.data || []).map((u: any) => ({
+        id: u.id,
+        auth_id: u.auth_id,
+        name: u.name || u.email,
+        email: u.email,
+        role: u.role,
+        department: u.department || "",
+        managerId: u.manager_id,
+        avatarUrl: u.avatar_url,
+        employeeCode: u.employee_code,
+        workLocation: u.work_location,
+        startDate: u.start_date,
+        jobTitle: u.job_title,
+        phone: u.phone,
+        annualLeaveRemaining: 0 // Client will calc
+    }));
+
+    // 5. Map Leave Requests
+    const initialRequests: LeaveRequest[] = (requestsRes.data || []).map((r: any) => ({
+        id: r.id,
+        type: r.type,
+        fromDate: r.from_date,
+        toDate: r.to_date,
+        duration: r.duration,
+        daysAnnual: r.days_annual,
+        daysUnpaid: r.days_unpaid,
+        daysExempt: r.days_exempt,
+        status: r.status,
+        reason: r.reason,
+        userId: r.user_id,
+        approvedBy: r.approved_by,
+        exemptionNote: r.exemption_note,
+        requestDetails: r.request_details
+    }));
+
+    return (
+        <DashboardLayoutClient
+            initialUser={initialUser}
+            initialUsers={initialUsers}
+            initialRequests={initialRequests}
+        >
+            {children}
+        </DashboardLayoutClient>
+    )
 }
