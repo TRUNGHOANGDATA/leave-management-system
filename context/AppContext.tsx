@@ -317,10 +317,28 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         // EXPLICIT CHECK: Always check session on mount in addition to listener
         // This fixes race conditions where the listener might miss the initial state
         const checkSession = async () => {
+            let userToFetch = null;
+
+            // 1. Try Client SDK first
             const { data: { user }, error } = await supabase.auth.getUser();
-            if (user && isMounted) {
-                console.log("Explicit user check found:", user.email);
-                await fetchUserProfile(user.id, user.email);
+            if (user) {
+                userToFetch = user;
+            } else {
+                // 2. Fallback: Try Server API (Cookies are more reliable here)
+                try {
+                    const res = await fetch('/api/auth/me');
+                    if (res.ok) {
+                        const data = await res.json();
+                        if (data.user) userToFetch = data.user;
+                    }
+                } catch (e) {
+                    console.error("Auth Check API failed:", e);
+                }
+            }
+
+            if (userToFetch && isMounted) {
+                console.log("Explicit user check found:", userToFetch.email);
+                await fetchUserProfile(userToFetch.id, userToFetch.email);
             }
         };
         checkSession();
