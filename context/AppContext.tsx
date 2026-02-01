@@ -267,8 +267,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
                 }))
             }));
 
-        } catch (error) {
-            console.error("Error loading data from Supabase:", error);
+        } catch (error: any) {
+            if (error?.name === 'AbortError' || error?.message?.includes('abort')) {
+                // Ignore abort errors
+            } else {
+                console.error("Error loading data from Supabase:", error);
+            }
         }
     };
 
@@ -279,53 +283,36 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     useEffect(() => {
         let isMounted = true;
 
-        const checkUser = async () => {
-            try {
-                // Use getUser() instead of getSession() - more reliable for SSR
-                const { data: { user }, error } = await supabase.auth.getUser();
-
-                if (error) {
-                    // AbortError happens often during navigation, just log and continue
-                    if (error.message?.includes('abort')) {
-                        console.log('Auth check aborted (normal during navigation)');
-                    } else {
-                        console.error("Auth error:", error.message);
-                    }
-                }
-
-                if (isMounted && user) {
-                    await fetchUserProfile(user.id, user.email);
-                } else if (isMounted) {
-                    setCurrentUser(null);
-                }
-            } catch (error: any) {
-                if (error?.name === 'AbortError' || error?.message?.includes('abort')) {
-                    console.log('Auth check aborted');
-                } else {
-                    console.error("Auth check failed:", error);
-                }
-            } finally {
-                if (isMounted) {
-                    setIsLoading(false);
-                }
-            }
-        };
-
-        checkUser();
-
-        // 2. Listen for auth changes (Signed in, Signed out)
+        // Listen for auth changes (Signed in, Signed out, Initial Session)
         const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
             if (!isMounted) return;
 
-            if (event === 'SIGNED_IN' && session?.user) {
+            console.log("Auth Event:", event, session?.user?.email);
+
+            if (session?.user && (event === 'SIGNED_IN' || event === 'INITIAL_SESSION' || event === 'TOKEN_REFRESHED')) {
+                // Determine source: 'auth_id' matching or 'id' matching handled in fetchUserProfile
                 await fetchUserProfile(session.user.id, session.user.email);
             } else if (event === 'SIGNED_OUT') {
                 setCurrentUser(null);
+                setIsLoading(false);
+            } else if (event === 'INITIAL_SESSION' && !session) {
+                // Handle case where no session exists on load
+                setCurrentUser(null);
+                setIsLoading(false);
             }
         });
 
+        // Safety fallback: if no event fires within 2 seconds, stop loading
+        const timeout = setTimeout(() => {
+            if (isMounted && isLoading) {
+                console.log("Auth timeout - assuming no user");
+                setIsLoading(false);
+            }
+        }, 2000);
+
         return () => {
             isMounted = false;
+            clearTimeout(timeout);
             subscription.unsubscribe();
         };
     }, []);
@@ -373,13 +360,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             }
         } catch (err) {
             console.error("Error fetching profile:", err);
+        } finally {
+            setIsLoading(false);
         }
     };
 
-    // Fetch all app data when user is loaded
+    // Fetch all app data when user is loaded - separate from auth critical path
     useEffect(() => {
         if (currentUser) {
-            refreshData();
+            refreshData().catch(e => console.log("Background refresh ignored:", e));
         }
     }, [currentUser]);
 
