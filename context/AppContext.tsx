@@ -305,13 +305,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             }
         });
 
-        // Safety fallback: if no event fires within 2 seconds, stop loading
+        // Safety fallback: if no event fires within 1 seconds (server protection is primary now)
         const timeout = setTimeout(() => {
             if (isMounted && isLoading) {
-                console.log("Auth timeout - assuming no user");
+                console.log("Auth timeout (1s) - assuming no user (or waiting for server sync)");
                 setIsLoading(false);
             }
-        }, 5000);
+        }, 1000);
 
         return () => {
             isMounted = false;
@@ -429,8 +429,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         } finally {
             setCurrentUser(null);
             setIsLoading(false);
-            router.push("/login");
-            router.refresh(); // Ensure strict refresh
+            // Use hard redirect to ensure cookies and server state are synced cleared
+            window.location.href = "/login";
         }
     };
 

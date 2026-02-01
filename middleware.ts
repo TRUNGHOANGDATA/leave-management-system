@@ -1,9 +1,9 @@
-import { NextResponse, type NextRequest } from 'next/server'
+import { type NextRequest } from 'next/server'
+import { updateSession } from '@/utils/supabase/middleware'
 
-// Simplified middleware - auth is handled client-side in AppContext
-// This avoids the AbortError issues with server-client session sync
 export async function middleware(request: NextRequest) {
-    return NextResponse.next()
+    // refresh session to keep it alive for Server Components
+    return await updateSession(request)
 }
 
 export const config = {

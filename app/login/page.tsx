@@ -49,11 +49,11 @@ export default function LoginPage() {
             // Let the redirect happen while the spinner is still showing for better UX
 
             console.log("Redirecting to dashboard...");
-            // Use window.location.href for hard navigation to clean React state
-            // This prevents "Processing..." freeze if AppContext is in stale timeout state
-            setTimeout(() => {
-                window.location.href = "/dashboard";
-            }, 500);
+
+            // Use router.push for smoother navigation now that Server Components are active
+            // The cookie is set by supabase-ssr automatically
+            router.push("/dashboard");
+            router.refresh(); // Ensure strict refresh
 
         } catch (error: any) {
             console.error("Login error:", error);
