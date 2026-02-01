@@ -169,14 +169,28 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     // Balance = Entitlement - Approved Leave Days (Annual Type)
     const calculateRemaining = (user: any, entitlement: number, requests: any[]) => {
         const currentYear = new Date().getFullYear();
+
+        // Debug for Trần Hoàng Nam
+        if (user.name?.includes("Nam")) {
+            console.log(`Calculating for ${user.name} (${currentYear}):`);
+            console.log("Entitlement:", entitlement);
+            const userRequests = requests.filter(r => r.userId === user.id);
+            console.log("Total Requests:", userRequests.length);
+            userRequests.forEach(r => {
+                console.log(`- Req: ${r.type}, Status: ${r.status}, Year: ${new Date(r.fromDate).getFullYear()}, Days: ${r.daysAnnual}`);
+            });
+        }
+
         const used = requests
             .filter(r =>
                 r.userId === user.id &&
-                r.status === 'approved' &&
+                r.status?.toLowerCase() === 'approved' &&
                 r.type === 'Nghỉ phép năm' &&
                 new Date(r.fromDate).getFullYear() === currentYear
             )
-            .reduce((sum, r) => sum + (r.daysAnnual || 0), 0);
+            .reduce((sum, r) => sum + (Number(r.daysAnnual) || 0), 0);
+
+        if (user.name?.includes("Nam")) console.log("Used:", used);
 
         return Math.max(0, entitlement - used);
     };
