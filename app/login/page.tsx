@@ -64,6 +64,9 @@ export default function LoginPage() {
             // Success! Server action handles redirect.
 
         } catch (error: any) {
+            if (error.message === 'NEXT_REDIRECT') {
+                return; // Redirecting, so ignore this "error"
+            }
             console.error("Login error:", error);
             toast({
                 title: "Đăng nhập thất bại",
