@@ -311,7 +311,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
                 console.log("Auth timeout - assuming no user");
                 setIsLoading(false);
             }
-        }, 2000);
+        }, 5000);
 
         return () => {
             isMounted = false;
@@ -388,7 +388,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
                     role: userProfile.role || 'employee',
                     department: userProfile.department || 'Chưa cập nhật',
                     avatarUrl: userProfile.avatar_url,
-                    jobTitle: userProfile.job_title
+                    jobTitle: userProfile.job_title,
+                    employeeCode: userProfile.employee_code
                 };
                 setCurrentUser(userData);
             } else if (email) {
