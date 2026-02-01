@@ -20,9 +20,23 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
         }
 
-        // 2. Insert Request (RLS Safe via Server Client)
+        // 2. Resolve Public User ID (Fix FK Violation)
+        // The foreign key in leave_requests references public.users.id, not auth.users.id
+        const { data: publicUser, error: userLookupError } = await adminSupabase
+            .from('users')
+            .select('id')
+            .eq('auth_id', user.id)
+            .single();
+
+        if (userLookupError || !publicUser) {
+            console.error("Public User Not Found for Auth ID:", user.id);
+            return NextResponse.json({ error: 'User profile not found. Please contact admin.' }, { status: 404 });
+        }
+
+        // 3. Insert Request (RLS Safe via Server Client)
         const { data, error } = await supabase.from('leave_requests').insert({
-            user_id: user.id, // Enforce User ID from Session
+            user_id: publicUser.id, // Use correct foreign key ID
+
             type: requestData.type,
             from_date: requestData.fromDate,
             to_date: requestData.toDate,
@@ -50,10 +64,11 @@ export async function POST(request: Request) {
             // We need full user list or specific manager lookup. 
             // Better to fetch requester's profile to get manager_id, then fetch manager.
 
+            // Fetch Requester & Manager Info
             const { data: requesterProfile } = await adminSupabase
                 .from('users')
                 .select('*')
-                .eq('id', user.id)
+                .eq('id', publicUser.id) // Use Public ID, not Auth ID
                 .single();
 
             if (requesterProfile && requesterProfile.manager_id) {
