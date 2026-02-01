@@ -49,9 +49,10 @@ export default function LoginPage() {
             // Let the redirect happen while the spinner is still showing for better UX
 
             console.log("Redirecting to dashboard...");
-            // Use router.push for client-side navigation (preserves React state)
+            // Use window.location.href for hard navigation to clean React state
+            // This prevents "Processing..." freeze if AppContext is in stale timeout state
             setTimeout(() => {
-                router.push("/dashboard");
+                window.location.href = "/dashboard";
             }, 500);
 
         } catch (error: any) {
