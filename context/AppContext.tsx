@@ -827,49 +827,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
                 alert("Lỗi cập nhật trạng thái đơn (API). Vui lòng thử lại.");
             } else {
                 await refreshData();
-
-                // --- Send Email Notification to Requester ---
-                if (status === 'approved' || status === 'rejected' || status === 'cancelled') {
-                    const request = settings.leaveRequests.find(r => r.id === requestId);
-                    const requester = settings.users.find(u => u.id === request?.userId);
-
-
-                    if (requester?.email) {
-                        try {
-                            // Determine message based on status
-                            const statusMessage = status === 'approved'
-                                ? 'DUYỆT'
-                                : status === 'rejected'
-                                    ? 'TỪ CHỐI'
-                                    : 'HUỶ DUYỆT';
-
-                            // 1. Insert In-App Notification
-                            await supabase.from('notifications').insert({
-                                recipient_id: requester.id,
-                                actor_name: approverName || currentUser?.name || "Quản lý",
-                                message: `đã ${statusMessage} đơn xin nghỉ của bạn`,
-                                action_url: `/dashboard/request`,
-                                is_read: false
-                            });
-
-                            // 2. Send Email
-                            await callEdgeFunction({
-                                type: 'request_decision',
-                                to: requester.email,
-                                data: {
-                                    requesterName: requester.name,
-                                    status: status, // 'approved' / 'rejected' for logic check
-                                    statusColor: status === 'approved' ? '#16a34a' : '#dc2626', // Green/Red
-                                    approverName: approverName || currentUser?.name || 'Quản lý',
-                                    fromDate: request?.fromDate,
-                                    toDate: request?.toDate
-                                }
-                            });
-                        } catch (err) { console.error("Notif Error", err) }
-                    }
-
-                    refreshData();
-                }
+                // Notifications are now handled server-side in /api/requests/status
             }
         } catch (e) {
             console.error("DB Update Error", e);
