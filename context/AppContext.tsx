@@ -374,6 +374,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         }
     };
 
+    // Fetch all app data when user is loaded
+    useEffect(() => {
+        if (currentUser) {
+            refreshData();
+        }
+    }, [currentUser]);
+
     const login = async (userId: string) => {
         console.warn("Legacy login called. Use Supabase Auth instead.");
     };
