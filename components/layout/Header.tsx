@@ -1,6 +1,7 @@
 "use client"
 
 import React, { useState } from 'react';
+import Link from 'next/link';
 import { Bell, Menu, Search, User, ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -63,26 +64,26 @@ export default function Header() {
 
                 {/* Desktop Nav */}
                 <nav className="flex items-center space-x-6 text-sm font-medium">
-                    <a href="/dashboard" className="transition-colors hover:text-primary text-foreground/80 font-semibold">
+                    <Link href="/dashboard" className="transition-colors hover:text-primary text-foreground/80 font-semibold">
                         Tổng quan
-                    </a>
-                    <a href="/dashboard/request" className="transition-colors hover:text-primary text-foreground/60">
+                    </Link>
+                    <Link href="/dashboard/request" className="transition-colors hover:text-primary text-foreground/60">
                         Tạo Đơn
-                    </a>
+                    </Link>
                     {(currentUser?.role === 'manager' || currentUser?.role === 'director' || currentUser?.role === 'admin') && (
                         <>
-                            <a href="/admin/employees" className="transition-colors hover:text-primary text-foreground/60">
+                            <Link href="/admin/employees" className="transition-colors hover:text-primary text-foreground/60">
                                 Nhân sự
-                            </a>
-                            <a href="/admin/reports" className="transition-colors hover:text-primary text-foreground/60">
+                            </Link>
+                            <Link href="/admin/reports" className="transition-colors hover:text-primary text-foreground/60">
                                 Báo cáo
-                            </a>
+                            </Link>
                         </>
                     )}
                     {(currentUser?.role === 'admin' || currentUser?.role === 'director') && (
-                        <a href="/dashboard/settings" className="transition-colors hover:text-primary text-foreground/60">
+                        <Link href="/dashboard/settings" className="transition-colors hover:text-primary text-foreground/60">
                             Cài đặt
-                        </a>
+                        </Link>
                     )}
                 </nav>
 
@@ -162,11 +163,11 @@ export default function Header() {
                                 </DropdownMenuLabel>
                                 <DropdownMenuSeparator />
                                 <DropdownMenuItem asChild>
-                                    <a href="/dashboard/profile" className="w-full cursor-pointer">Hồ sơ cá nhân</a>
+                                    <Link href="/dashboard/profile" className="w-full cursor-pointer">Hồ sơ cá nhân</Link>
                                 </DropdownMenuItem>
                                 {(currentUser?.role === 'admin' || currentUser?.role === 'director') && (
                                     <DropdownMenuItem asChild>
-                                        <a href="/dashboard/settings" className="w-full cursor-pointer">Cài đặt</a>
+                                        <Link href="/dashboard/settings" className="w-full cursor-pointer">Cài đặt</Link>
                                     </DropdownMenuItem>
                                 )}
                                 <DropdownMenuSeparator />

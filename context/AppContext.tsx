@@ -1,6 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { calculateEntitlement } from "@/lib/leave-utils";
 
@@ -128,6 +129,7 @@ const AppContext = createContext<AppContextType>({
 });
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
+    const router = useRouter();
     const [settings, setSettings] = useState<AppSettings>(defaultSettings);
     const [currentUser, setCurrentUser] = useState<User | null>(null);
     const [isLoaded, setIsLoaded] = useState(false);
@@ -419,9 +421,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     };
 
     const logout = async () => {
-        await supabase.auth.signOut();
-        setCurrentUser(null);
-        window.location.href = "/login";
+        try {
+            await supabase.auth.signOut();
+        } catch (error) {
+            console.error("Logout error (safe to ignore):", error);
+        } finally {
+            setCurrentUser(null);
+            setIsLoading(false);
+            router.push("/login");
+            router.refresh(); // Ensure strict refresh
+        }
     };
 
     const setWorkSchedule = (schedule: WorkScheduleType) => {
