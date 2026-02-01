@@ -275,20 +275,37 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
     // --- Authentication Logic ---
     useEffect(() => {
+        let isMounted = true;
+
         const checkUser = async () => {
             try {
-                // 1. Check active session
-                const { data: { session } } = await supabase.auth.getSession();
+                // Use getUser() instead of getSession() - more reliable for SSR
+                const { data: { user }, error } = await supabase.auth.getUser();
 
-                if (session?.user) {
-                    await fetchUserProfile(session.user.id, session.user.email);
-                } else {
+                if (error) {
+                    // AbortError happens often during navigation, just log and continue
+                    if (error.message?.includes('abort')) {
+                        console.log('Auth check aborted (normal during navigation)');
+                    } else {
+                        console.error("Auth error:", error.message);
+                    }
+                }
+
+                if (isMounted && user) {
+                    await fetchUserProfile(user.id, user.email);
+                } else if (isMounted) {
                     setCurrentUser(null);
                 }
-            } catch (error) {
-                console.error("Auth check failed:", error);
+            } catch (error: any) {
+                if (error?.name === 'AbortError' || error?.message?.includes('abort')) {
+                    console.log('Auth check aborted');
+                } else {
+                    console.error("Auth check failed:", error);
+                }
             } finally {
-                setIsLoading(false);
+                if (isMounted) {
+                    setIsLoading(false);
+                }
             }
         };
 
@@ -296,6 +313,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
         // 2. Listen for auth changes (Signed in, Signed out)
         const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+            if (!isMounted) return;
+
             if (event === 'SIGNED_IN' && session?.user) {
                 await fetchUserProfile(session.user.id, session.user.email);
             } else if (event === 'SIGNED_OUT') {
@@ -304,6 +323,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         });
 
         return () => {
+            isMounted = false;
             subscription.unsubscribe();
         };
     }, []);
