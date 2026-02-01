@@ -310,27 +310,37 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
     const fetchUserProfile = async (userId: string, email?: string) => {
         try {
-            // First try to find user by auth_id (for Excel-imported users who registered)
-            let { data, error } = await supabase
-                .from('users')
-                .select('*')
-                .eq('auth_id', userId)
-                .single();
+            let userProfile = null;
 
-            // Fallback: try by id (for users created directly via registration)
-            if (!data) {
-                const fallback = await supabase
+            try {
+                // First try to find user by auth_id (for Excel-imported users who registered)
+                const resAuth = await supabase
                     .from('users')
                     .select('*')
-                    .eq('id', userId)
+                    .eq('auth_id', userId)
                     .single();
-                data = fallback.data;
+
+                if (resAuth.data) {
+                    userProfile = resAuth.data;
+                } else {
+                    // Fallback: try by id (for users created directly via registration)
+                    const resId = await supabase
+                        .from('users')
+                        .select('*')
+                        .eq('id', userId)
+                        .single();
+
+                    if (resId.data) userProfile = resId.data;
+                }
+            } catch (dbError) {
+                console.warn("DB lookup failed, using fallback:", dbError);
+                // Continue to use fallback logic
             }
 
-            if (data) {
-                setCurrentUser(data as User);
+            if (userProfile) {
+                setCurrentUser(userProfile as User);
             } else if (email) {
-                // Fallback if public.users row missing entirely
+                // Fallback if public.users row missing entirely OR DB error occurred
                 setCurrentUser({
                     id: userId,
                     email: email,
