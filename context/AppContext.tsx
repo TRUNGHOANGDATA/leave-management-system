@@ -199,19 +199,25 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const refreshData = async () => {
         try {
             // Fetch in Parallel (Performance Optimization)
+            // Fetch in Parallel (Performance Optimization)
+            // Use API for Users (Bypass RLS)
             const [
-                { data: usersData, error: usersError },
+                usersResponse,
                 { data: requestsData, error: requestsError },
                 { data: notifData, error: notifError },
                 { data: holidaysData, error: holidaysError }
             ] = await Promise.all([
-                supabase.from('users').select('*'),
+                fetch('/api/users/directory'),
                 supabase.from('leave_requests').select('*'),
                 supabase.from('notifications').select('*').order('created_at', { ascending: false }),
                 supabase.from('public_holidays').select('*').order('date', { ascending: true })
             ]);
 
-            if (usersError) throw usersError;
+            const usersJson = await usersResponse.json();
+            const usersData = usersJson.users;
+            const usersError = usersJson.error;
+
+            if (usersError) throw new Error(usersError);
             if (requestsError) throw requestsError;
             if (notifError) throw notifError;
             if (holidaysError) console.error("Error fetching holidays:", holidaysError);
@@ -234,7 +240,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             }));
 
             // Map Users with Dynamic Calculation
-            const mappedUsers: User[] = (usersData || []).map(u => {
+            const mappedUsers: User[] = (usersData || []).map((u: any) => {
                 const entitlement = calculateEntitlement(u);
                 const remaining = calculateRemaining(u, entitlement, allRequests);
 
