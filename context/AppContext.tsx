@@ -93,6 +93,7 @@ interface AppContextType {
     refreshData: () => Promise<void>;
     updateHoliday: (currentDate: string, newDate: string, newName: string) => Promise<void>;
     importHolidays: (holidays: { date: string, name: string }[]) => Promise<void>;
+    setData: (user: User | null) => void; // Allow manual hydration
 }
 
 const defaultSettings: AppSettings = {
@@ -125,7 +126,8 @@ const AppContext = createContext<AppContextType>({
     addBulkUsers: async () => { },
     refreshData: async () => { },
     updateHoliday: async () => { },
-    importHolidays: async () => { }
+    importHolidays: async () => { },
+    setData: () => { }
 });
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
@@ -461,6 +463,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         // This ensures all cookies are cleared and cache is revalidated
         // preventing the "Login Loop" issue.
         window.location.href = "/api/auth/signout";
+    };
+
+    const setData = (user: User | null) => {
+        if (user) {
+            console.log("Hydrating user data from Server Component:", user.email);
+            setCurrentUser(user);
+            setIsLoading(false);
+        }
     };
 
     const setWorkSchedule = (schedule: WorkScheduleType) => {
@@ -875,7 +885,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const notificationCount = currentUser ? settings.notifications.filter(n => n.recipientId === currentUser.id && !n.isRead).length : 0;
 
     return (
-        <AppContext.Provider value={{ settings, currentUser, isLoading, notificationCount, markNotificationRead, login, logout, setWorkSchedule, addHoliday, removeHoliday, setHolidays, addLeaveRequest, updateLeaveRequestStatus, cancelLeaveRequest, setUsers, addUser, updateUser, removeUser, addBulkUsers, refreshData, updateHoliday, importHolidays }}>
+        <AppContext.Provider value={{ settings, currentUser, isLoading, notificationCount, markNotificationRead, login, logout, setWorkSchedule, addHoliday, removeHoliday, setHolidays, addLeaveRequest, updateLeaveRequestStatus, cancelLeaveRequest, setUsers, addUser, updateUser, removeUser, addBulkUsers, refreshData, updateHoliday, importHolidays, setData }}>
             {children}
         </AppContext.Provider>
     );

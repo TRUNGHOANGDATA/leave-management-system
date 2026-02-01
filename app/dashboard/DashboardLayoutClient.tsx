@@ -1,37 +1,35 @@
 "use client";
 
-import { useApp } from "@/context/AppContext";
+import { useApp, User } from "@/context/AppContext";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { Loader2 } from "lucide-react";
 
-export default function DashboardLayout({
+export default function DashboardLayoutClient({
     children,
+    initialUser
 }: {
     children: React.ReactNode;
+    initialUser: User | null;
 }) {
-    const { currentUser, isLoading } = useApp();
+    const { currentUser, isLoading, setData } = useApp();
     const router = useRouter();
 
-    // Client-side redirect removed in favor of Server Component protection
-    // Client-side redirect REMOVED.
-    // We trust the Server Component (layout.tsx) to protect this route.
-    // If we are here, the Server has already verified the session.
-    // Having a second check here causes race conditions (Login Loop) on slow connections.
+    // HYDRATION: If server passed a user, set it immediately
+    useEffect(() => {
+        if (initialUser && !currentUser) {
+            setData(initialUser);
+        }
+    }, [initialUser]);
 
-    // Show loading while checking auth
-    if (isLoading) {
+    // Show loading ONLY if we really have no user and are waiting
+    if (isLoading && !currentUser && !initialUser) {
         return (
             <div className="flex items-center justify-center min-h-[calc(100vh-80px)]">
                 <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
             </div>
         );
     }
-
-    // If no user and not loading, don't render children (redirect happening)
-    // Render children immediately.
-    // Even if currentUser is still loading context, we allow the shell to render.
-    // This prevents "Flash of Loading" looping.
 
     return <>{children}</>;
 }
