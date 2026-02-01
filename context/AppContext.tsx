@@ -429,8 +429,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         } finally {
             setCurrentUser(null);
             setIsLoading(false);
-            // Use hard redirect to ensure cookies and server state are synced cleared
-            window.location.href = "/login";
+            // Use replace to prevent back navigation
+            // Ensure we go to login and clear any client state
+            window.location.replace("/login");
         }
     };
 
@@ -616,6 +617,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             ...prev,
             users: prev.users.map(u => u.id === user.id ? { ...u, ...user } : u)
         }));
+
+        // FIX: Sync currentUser state if the updated user is the logged-in user
+        if (currentUser && currentUser.id === user.id) {
+            setCurrentUser(prev => prev ? ({ ...prev, ...user } as User) : null);
+        }
+
         try {
             const { error } = await supabase.from('users').update({
                 email: user.email,
