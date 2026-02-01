@@ -50,10 +50,8 @@ export default function LoginPage() {
 
             console.log("Redirecting to dashboard...");
 
-            // Use router.push for smoother navigation now that Server Components are active
-            // The cookie is set by supabase-ssr automatically
-            router.push("/dashboard");
-            router.refresh(); // Ensure strict refresh
+            // Use hard redirect to ensure cookies are fresh and prevent router hang
+            window.location.href = "/dashboard";
 
         } catch (error: any) {
             console.error("Login error:", error);
