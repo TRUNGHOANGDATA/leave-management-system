@@ -48,10 +48,29 @@ export default function LoginPage() {
             // IMPORTANT: Don't set isLoading(false) here, or the spinner stops before redirect
             // Let the redirect happen while the spinner is still showing for better UX
 
-            console.log("Redirecting to dashboard...");
+            // Hybrid Strategy: Try fast router.push first, fallback to hard reload if stuck
+            console.log("Login successful, attempting navigation...");
 
-            // Use hard redirect to ensure cookies are fresh and prevent router hang
-            window.location.href = "/dashboard";
+            // 1. Attempt Client-Side Navigation (Fastest)
+            // router.push("/dashboard"); 
+            // router.refresh();
+
+            // 2. Actually, let's stick to window.location.assign (Standard) 
+            // but wrapped in a slightly delayed execution to ensure the UI updates first
+            // and we set a fallback just in case execution halts.
+
+            setTimeout(() => {
+                window.location.assign("/dashboard");
+            }, 100);
+
+            // Safety Fallback: If 3 seconds pass and we make it here without unloading...
+            // It means the browser blocked the first attempt. Force reload.
+            setTimeout(() => {
+                if (window.location.pathname === "/login") {
+                    console.warn("Navigation fallback triggered");
+                    window.location.reload();
+                }
+            }, 3000);
 
         } catch (error: any) {
             console.error("Login error:", error);
