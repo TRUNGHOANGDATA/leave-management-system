@@ -305,13 +305,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             }
         });
 
-        // Safety fallback: if no event fires within 1 seconds (server protection is primary now)
+        // Safety fallback: if no event fires within 5 seconds
+        // Increased from 1s to 5s to prevent premature "No User" assumption on slow connections
         const timeout = setTimeout(() => {
             if (isMounted && isLoading) {
-                console.log("Auth timeout (1s) - assuming no user (or waiting for server sync)");
+                console.log("Auth timeout (5s) - assuming no user (or waiting for server sync)");
                 setIsLoading(false);
             }
-        }, 1000);
+        }, 5000);
 
         return () => {
             isMounted = false;

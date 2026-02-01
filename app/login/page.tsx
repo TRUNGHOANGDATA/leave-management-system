@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabaseClient";
@@ -11,15 +11,23 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { useToast } from "@/components/ui/use-toast";
 import { Loader2, Mail, Lock, ArrowRight, ShieldCheck } from "lucide-react";
 
+import { useApp } from "@/context/AppContext";
+
 export default function LoginPage() {
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [isLoading, setIsLoading] = useState(false);
     const router = useRouter();
     const { toast } = useToast();
+    const { currentUser } = useApp(); // Access global user state
 
-    // Removed blocking client-side check to prevent AbortError loops
-    // User can just log in manually if needed
+    // Auto-redirect if user is already logged in (or becomes logged in via event)
+    useEffect(() => {
+        if (currentUser) {
+            console.log("User detected, redirecting to dashboard...");
+            window.location.assign("/dashboard");
+        }
+    }, [currentUser]);
 
 
     // Force cleanup on mount to prevent stale state
