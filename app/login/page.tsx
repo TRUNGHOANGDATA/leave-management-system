@@ -49,9 +49,10 @@ export default function LoginPage() {
             // Let the redirect happen while the spinner is still showing for better UX
 
             console.log("Redirecting to dashboard...");
+            // Increase delay to give session more time to propagate
             setTimeout(() => {
                 window.location.href = "/dashboard";
-            }, 500);
+            }, 1000);
 
         } catch (error: any) {
             console.error("Login error:", error);

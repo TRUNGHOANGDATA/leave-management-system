@@ -10,9 +10,8 @@ export async function middleware(request: NextRequest) {
 
     const path = request.nextUrl.pathname
 
-    // Skip middleware for public paths that don't need auth checks
-    // This prevents race conditions during login/register
-    const publicPaths = ['/login', '/register', '/forgot-password', '/reset-password']
+    // Skip middleware ONLY for password reset pages (these don't need session checks)
+    const publicPaths = ['/forgot-password', '/reset-password']
     if (publicPaths.includes(path)) {
         return response
     }
