@@ -426,17 +426,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     };
 
     const logout = async () => {
-        try {
-            await supabase.auth.signOut();
-        } catch (error) {
-            console.error("Logout error (safe to ignore):", error);
-        } finally {
-            setCurrentUser(null);
-            setIsLoading(false);
-            // Use replace to prevent back navigation
-            // Ensure we go to login and clear any client state
-            window.location.replace("/login");
-        }
+        setIsLoading(true);
+        // FORCE SERVER-SIDE LOGOUT
+        // This ensures all cookies are cleared and cache is revalidated
+        // preventing the "Login Loop" issue.
+        window.location.href = "/api/auth/signout";
     };
 
     const setWorkSchedule = (schedule: WorkScheduleType) => {
