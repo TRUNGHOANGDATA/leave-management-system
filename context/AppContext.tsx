@@ -389,7 +389,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
                     department: userProfile.department || 'Chưa cập nhật',
                     avatarUrl: userProfile.avatar_url,
                     jobTitle: userProfile.job_title,
-                    employeeCode: userProfile.employee_code
+                    employeeCode: userProfile.employee_code,
+                    managerId: userProfile.manager_id,  // FIX: Map manager_id
+                    workLocation: userProfile.work_location,
+                    startDate: userProfile.start_date,
+                    phone: userProfile.phone
                 };
                 setCurrentUser(userData);
             } else if (email) {
