@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabaseClient";
@@ -15,28 +15,12 @@ export default function LoginPage() {
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [isLoading, setIsLoading] = useState(false);
-    const [isCheckingAuth, setIsCheckingAuth] = useState(true);
     const router = useRouter();
     const { toast } = useToast();
 
-    // Check if user is already logged in (client-side)
-    useEffect(() => {
-        const checkSession = async () => {
-            try {
-                const { data: { session } } = await supabase.auth.getSession();
-                if (session) {
-                    console.log("User already logged in, redirecting...");
-                    window.location.href = "/dashboard";
-                    return;
-                }
-            } catch (error) {
-                console.error("Session check error:", error);
-            } finally {
-                setIsCheckingAuth(false);
-            }
-        };
-        checkSession();
-    }, []);
+    // Removed blocking client-side check to prevent AbortError loops
+    // User can just log in manually if needed
+
 
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -79,15 +63,6 @@ export default function LoginPage() {
             setIsLoading(false); // Only stop loading on error
         }
     };
-
-    // Show loading while checking auth
-    if (isCheckingAuth) {
-        return (
-            <div className="min-h-screen flex items-center justify-center bg-slate-900">
-                <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
-            </div>
-        );
-    }
 
     return (
         <div className="min-h-screen flex items-center justify-center bg-[url('https://images.unsplash.com/photo-1497294815431-9365093b7331?q=80&w=2070&auto=format&fit=crop')] bg-cover bg-center">
