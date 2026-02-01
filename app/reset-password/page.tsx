@@ -1,31 +1,48 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import { supabase } from "@/lib/supabaseClient";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/components/ui/use-toast";
-import { Loader2, Mail, Lock, ArrowRight, ShieldCheck } from "lucide-react";
+import { Loader2, Lock, ShieldCheck } from "lucide-react";
 
-export default function LoginPage() {
-    const [email, setEmail] = useState("");
+export default function ResetPasswordPage() {
     const [password, setPassword] = useState("");
+    const [confirmPassword, setConfirmPassword] = useState("");
     const [isLoading, setIsLoading] = useState(false);
     const router = useRouter();
     const { toast } = useToast();
 
-    const handleLogin = async (e: React.FormEvent) => {
+    const handleResetPassword = async (e: React.FormEvent) => {
         e.preventDefault();
+
+        if (password !== confirmPassword) {
+            toast({
+                title: "Mật khẩu không khớp",
+                description: "Vui lòng nhập lại mật khẩu xác nhận.",
+                variant: "destructive",
+            });
+            return;
+        }
+
+        if (password.length < 6) {
+            toast({
+                title: "Mật khẩu quá ngắn",
+                description: "Mật khẩu phải có ít nhất 6 ký tự.",
+                variant: "destructive",
+            });
+            return;
+        }
+
         setIsLoading(true);
 
         try {
-            const { error } = await supabase.auth.signInWithPassword({
-                email,
-                password,
+            const { error } = await supabase.auth.updateUser({
+                password: password,
             });
 
             if (error) {
@@ -33,18 +50,19 @@ export default function LoginPage() {
             }
 
             toast({
-                title: "Đăng nhập thành công!",
-                description: "Đang chuyển hướng vào hệ thống...",
+                title: "Đổi mật khẩu thành công!",
+                description: "Đang chuyển hướng đến trang đăng nhập...",
                 className: "bg-green-50 border-green-200 text-green-800"
             });
 
-            // Hard redirect to ensure fresh page load after auth
-            window.location.href = "/dashboard";
+            // Sign out and redirect to login
+            await supabase.auth.signOut();
+            window.location.href = "/login";
 
         } catch (error: any) {
             toast({
-                title: "Đăng nhập thất bại",
-                description: error.message || "Vui lòng kiểm tra lại thông tin.",
+                title: "Đổi mật khẩu thất bại",
+                description: error.message || "Vui lòng thử lại.",
                 variant: "destructive",
             });
         } finally {
@@ -60,56 +78,53 @@ export default function LoginPage() {
             <Card className="w-full max-w-md relative z-10 bg-white/90 backdrop-blur-md shadow-2xl border-white/20">
                 <CardHeader className="space-y-1 text-center pb-2">
                     <div className="flex justify-center mb-4">
-                        <div className="h-12 w-12 rounded-xl bg-blue-600 flex items-center justify-center shadow-lg shadow-blue-600/30">
+                        <div className="h-12 w-12 rounded-xl bg-green-600 flex items-center justify-center shadow-lg shadow-green-600/30">
                             <ShieldCheck className="h-7 w-7 text-white" />
                         </div>
                     </div>
                     <CardTitle className="text-2xl font-bold tracking-tight text-slate-900">
-                        Chào mừng trở lại
+                        Đặt mật khẩu mới
                     </CardTitle>
                     <CardDescription className="text-slate-500">
-                        Hệ thống Quản lý nghỉ phép toàn diện
+                        Nhập mật khẩu mới cho tài khoản của bạn
                     </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4 pt-4">
-                    <form onSubmit={handleLogin} className="space-y-4">
+                    <form onSubmit={handleResetPassword} className="space-y-4">
                         <div className="space-y-2">
-                            <Label htmlFor="email">Email công việc</Label>
-                            <div className="relative">
-                                <Mail className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
-                                <Input
-                                    id="email"
-                                    type="email"
-                                    placeholder="name@company.com"
-                                    className="pl-9 bg-white/50 border-slate-200 focus:bg-white transition-all"
-                                    value={email}
-                                    onChange={(e) => setEmail(e.target.value)}
-                                    required
-                                />
-                            </div>
-                        </div>
-                        <div className="space-y-2">
-                            <div className="flex items-center justify-between">
-                                <Label htmlFor="password">Mật khẩu</Label>
-                                <Link href="/forgot-password" className="text-xs text-blue-600 hover:text-blue-800 font-medium hover:underline">
-                                    Quên mật khẩu?
-                                </Link>
-                            </div>
+                            <Label htmlFor="password">Mật khẩu mới</Label>
                             <div className="relative">
                                 <Lock className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
                                 <Input
                                     id="password"
                                     type="password"
+                                    placeholder="••••••••"
                                     className="pl-9 bg-white/50 border-slate-200 focus:bg-white transition-all"
                                     value={password}
                                     onChange={(e) => setPassword(e.target.value)}
+                                    required
+                                    minLength={6}
+                                />
+                            </div>
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="confirmPassword">Xác nhận mật khẩu</Label>
+                            <div className="relative">
+                                <Lock className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
+                                <Input
+                                    id="confirmPassword"
+                                    type="password"
+                                    placeholder="••••••••"
+                                    className="pl-9 bg-white/50 border-slate-200 focus:bg-white transition-all"
+                                    value={confirmPassword}
+                                    onChange={(e) => setConfirmPassword(e.target.value)}
                                     required
                                 />
                             </div>
                         </div>
                         <Button
                             type="submit"
-                            className="w-full bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-900/20 h-10 font-medium text-base transition-all hover:scale-[1.02]"
+                            className="w-full bg-green-600 hover:bg-green-700 shadow-lg shadow-green-900/20 h-10 font-medium text-base transition-all hover:scale-[1.02]"
                             disabled={isLoading}
                         >
                             {isLoading ? (
@@ -118,19 +133,11 @@ export default function LoginPage() {
                                     Đang xử lý...
                                 </>
                             ) : (
-                                "Đăng nhập hệ thống"
+                                "Đặt mật khẩu mới"
                             )}
                         </Button>
                     </form>
                 </CardContent>
-                <CardFooter className="flex flex-col space-y-4 pt-2 border-t border-slate-100 mt-4">
-                    <div className="text-center text-sm text-slate-500">
-                        Chưa có tài khoản?{" "}
-                        <Link href="/register" className="text-blue-600 hover:text-blue-800 font-semibold hover:underline inline-flex items-center">
-                            Đăng ký ngay <ArrowRight className="ml-1 h-3 w-3" />
-                        </Link>
-                    </div>
-                </CardFooter>
             </Card>
         </div>
     );
