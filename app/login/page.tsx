@@ -38,8 +38,10 @@ export default function LoginPage() {
                 className: "bg-green-50 border-green-200 text-green-800"
             });
 
-            // Hard redirect to ensure fresh page load after auth
-            window.location.href = "/dashboard";
+            // Add delay to ensure session cookies are properly set before redirect
+            setTimeout(() => {
+                window.location.href = "/dashboard";
+            }, 500);
 
         } catch (error: any) {
             toast({
