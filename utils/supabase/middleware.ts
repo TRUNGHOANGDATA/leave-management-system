@@ -24,7 +24,8 @@ export async function updateSession(request: NextRequest) {
                         request,
                     })
                     cookiesToSet.forEach(({ name, value, options }) =>
-                        response.cookies.set(name, value, options)
+                        // Enforce 15 minutes (900s) maxAge for session timeout
+                        response.cookies.set(name, value, { ...options, maxAge: 900 })
                     )
                 },
             },

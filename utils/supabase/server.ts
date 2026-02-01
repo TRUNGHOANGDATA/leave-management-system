@@ -15,7 +15,8 @@ export async function createClient() {
                 setAll(cookiesToSet) {
                     try {
                         cookiesToSet.forEach(({ name, value, options }) =>
-                            cookieStore.set(name, value, options)
+                            // Enforce 15 minutes (900s) maxAge for session timeout
+                            cookieStore.set(name, value, { ...options, maxAge: 900 })
                         )
                     } catch {
                         // The `setAll` method was called from a Server Component.

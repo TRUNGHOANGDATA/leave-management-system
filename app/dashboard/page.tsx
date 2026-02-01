@@ -518,8 +518,8 @@ export default function Dashboard() {
                     </Card>
                 </div>
             </div>
-            {/* User Switcher Widget (Dev Only) */}
-            <UserSwitcher />
+            {/* User Switcher Widget (Dev Only) - Removed as per request */}
+            {/* <UserSwitcher /> */}
         </div>
     );
 }
