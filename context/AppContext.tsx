@@ -322,7 +322,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             let userProfile = null;
 
             try {
-                // First try to find user by auth_id (for Excel-imported users who registered)
+                // 1. Try by auth_id (standard)
                 const resAuth = await supabase
                     .from('users')
                     .select('*')
@@ -331,19 +331,47 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
                 if (resAuth.data) {
                     userProfile = resAuth.data;
-                } else {
-                    // Fallback: try by id (for users created directly via registration)
+                }
+                else {
+                    // 2. Try by id (legacy registration)
                     const resId = await supabase
                         .from('users')
                         .select('*')
                         .eq('id', userId)
                         .single();
 
-                    if (resId.data) userProfile = resId.data;
+                    if (resId.data) {
+                        userProfile = resId.data;
+                    }
+                    else if (email) {
+                        // 3. Try by EMAIL (Auto-linking for pre-imported users)
+                        const resEmail = await supabase
+                            .from('users')
+                            .select('*')
+                            .eq('email', email)
+                            .single();
+
+                        if (resEmail.data) {
+                            console.log("Found user by email, linking auth_id...");
+                            // Update the auth_id for this user
+                            const { data: updatedUser, error: updateError } = await supabase
+                                .from('users')
+                                .update({ auth_id: userId })
+                                .eq('id', resEmail.data.id)
+                                .select()
+                                .single();
+
+                            if (updatedUser) {
+                                userProfile = updatedUser;
+                            } else {
+                                userProfile = resEmail.data; // Use found data even if update fails (permissions?)
+                                console.warn("Failed to link auth_id:", updateError);
+                            }
+                        }
+                    }
                 }
             } catch (dbError) {
                 console.warn("DB lookup failed, using fallback:", dbError);
-                // Continue to use fallback logic
             }
 
             if (userProfile) {
