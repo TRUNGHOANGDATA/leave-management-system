@@ -71,6 +71,7 @@ interface AppSettings {
 interface AppContextType {
     settings: AppSettings;
     currentUser: User | null;
+    isLoading: boolean;
     notificationCount: number;
     markNotificationRead: (id: string) => Promise<void>;
     login: (userId: string) => void;
@@ -103,6 +104,7 @@ const defaultSettings: AppSettings = {
 const AppContext = createContext<AppContextType>({
     settings: defaultSettings,
     currentUser: null,
+    isLoading: true,
     notificationCount: 0,
     markNotificationRead: async () => { },
     login: () => { },
@@ -792,7 +794,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const notificationCount = currentUser ? settings.notifications.filter(n => n.recipientId === currentUser.id && !n.isRead).length : 0;
 
     return (
-        <AppContext.Provider value={{ settings, currentUser, notificationCount, markNotificationRead, login, logout, setWorkSchedule, addHoliday, removeHoliday, setHolidays, addLeaveRequest, updateLeaveRequestStatus, cancelLeaveRequest, setUsers, addUser, updateUser, removeUser, addBulkUsers, refreshData, updateHoliday, importHolidays }}>
+        <AppContext.Provider value={{ settings, currentUser, isLoading, notificationCount, markNotificationRead, login, logout, setWorkSchedule, addHoliday, removeHoliday, setHolidays, addLeaveRequest, updateLeaveRequestStatus, cancelLeaveRequest, setUsers, addUser, updateUser, removeUser, addBulkUsers, refreshData, updateHoliday, importHolidays }}>
             {children}
         </AppContext.Provider>
     );
