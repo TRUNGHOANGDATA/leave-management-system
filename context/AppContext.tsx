@@ -310,16 +310,27 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
     const fetchUserProfile = async (userId: string, email?: string) => {
         try {
-            const { data, error } = await supabase
+            // First try to find user by auth_id (for Excel-imported users who registered)
+            let { data, error } = await supabase
                 .from('users')
                 .select('*')
-                .eq('id', userId)
+                .eq('auth_id', userId)
                 .single();
+
+            // Fallback: try by id (for users created directly via registration)
+            if (!data) {
+                const fallback = await supabase
+                    .from('users')
+                    .select('*')
+                    .eq('id', userId)
+                    .single();
+                data = fallback.data;
+            }
 
             if (data) {
                 setCurrentUser(data as User);
             } else if (email) {
-                // Fallback if public.users row missing
+                // Fallback if public.users row missing entirely
                 setCurrentUser({
                     id: userId,
                     email: email,
