@@ -21,12 +21,15 @@ export default function LoginPage() {
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
         setIsLoading(true);
+        console.log("Starting login for:", email);
 
         try {
-            const { error } = await supabase.auth.signInWithPassword({
+            const { data, error } = await supabase.auth.signInWithPassword({
                 email,
                 password,
             });
+
+            console.log("Login result:", { data, error });
 
             if (error) {
                 throw error;
@@ -38,19 +41,22 @@ export default function LoginPage() {
                 className: "bg-green-50 border-green-200 text-green-800"
             });
 
-            // Add delay to ensure session cookies are properly set before redirect
+            // IMPORTANT: Don't set isLoading(false) here, or the spinner stops before redirect
+            // Let the redirect happen while the spinner is still showing for better UX
+
+            console.log("Redirecting to dashboard...");
             setTimeout(() => {
                 window.location.href = "/dashboard";
             }, 500);
 
         } catch (error: any) {
+            console.error("Login error:", error);
             toast({
                 title: "Đăng nhập thất bại",
                 description: error.message || "Vui lòng kiểm tra lại thông tin.",
                 variant: "destructive",
             });
-        } finally {
-            setIsLoading(false);
+            setIsLoading(false); // Only stop loading on error
         }
     };
 
