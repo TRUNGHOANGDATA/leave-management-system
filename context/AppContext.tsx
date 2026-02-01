@@ -314,6 +314,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             }
         }, 5000);
 
+        // EXPLICIT CHECK: Always check session on mount in addition to listener
+        // This fixes race conditions where the listener might miss the initial state
+        const checkSession = async () => {
+            const { data: { user }, error } = await supabase.auth.getUser();
+            if (user && isMounted) {
+                console.log("Explicit user check found:", user.email);
+                await fetchUserProfile(user.id, user.email);
+            }
+        };
+        checkSession();
+
         return () => {
             isMounted = false;
             clearTimeout(timeout);
