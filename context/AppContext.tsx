@@ -724,73 +724,26 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
     const addLeaveRequest = async (request: LeaveRequest) => {
         // No optimistic update - wait for DB confirmation to avoid race conditions
-
         try {
-            const { error, data } = await supabase.from('leave_requests').insert({
-                user_id: request.userId,
-                type: request.type,
-                from_date: request.fromDate,
-                to_date: request.toDate,
-                duration: request.duration,
-                days_annual: request.daysAnnual,
-                days_unpaid: request.daysUnpaid,
-                days_exempt: request.daysExempt,
-                reason: request.reason,
-                status: 'pending',
-                request_details: request.requestDetails,
-                exemption_note: request.exemptionNote
-            }).select(); // Capture returned data
+            // Use Secure Server API for Creation (Bypass Client RLS/Auth timing issues)
+            const response = await fetch('/api/requests/create', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ requestData: request })
+            });
 
-            if (error) {
-                console.error("Failed to add request:", error);
+            const result = await response.json();
+
+            if (!response.ok || result.error) {
+                console.error("Failed to add request via API:", result.error);
+                alert(`Lỗi tạo đơn: ${result.error || 'Vui lòng thử lại'}`);
             } else {
                 refreshData();
-
-                // --- Send Email Notification to Manager ---
-                const requester = settings.users.find(u => u.id === request.userId);
-                const manager = settings.users.find(u => u.id === requester?.managerId);
-
-
-                if (manager?.email) {
-                    // Use configured SITE_URL for reliable production links
-                    // Normalize SITE_URL to remove trailing slash if present
-                    const baseUrl = SITE_URL.endsWith('/') ? SITE_URL.slice(0, -1) : SITE_URL;
-                    // Construct correct deep link to the specific request
-                    const newRequestId = data?.[0]?.id || "";
-                    const approveUrl = newRequestId ? `${baseUrl}/approve/${newRequestId}` : `${baseUrl}/dashboard`;
-
-                    // 1. Insert In-App Notification (with error logging)
-                    supabase.from('notifications').insert({
-                        recipient_id: manager.id,
-                        actor_name: requester?.name || "Nhân viên",
-                        message: `đã gửi đơn xin nghỉ: ${request.type}`,
-                        action_url: `/approve/${newRequestId}`, // Direct link in notification too
-                        is_read: false
-                    }).then(({ error }) => {
-                        if (error) {
-                            console.error('[Notification Insert Error]', error);
-                        } else {
-
-                        }
-                    });
-
-                    // 2. Send Email (fire-and-forget, don't block UI)
-                    callEdgeFunction({
-                        type: 'new_request',
-                        to: manager.email,
-                        data: {
-                            requesterName: requester?.name || 'Nhân viên',
-                            leaveType: request.type,
-                            fromDate: request.fromDate,
-                            toDate: request.toDate,
-                            reason: request.reason || 'Không có',
-                            approveUrl: approveUrl,
-                        }
-                    }).catch(err => console.error('[Email Error]', err));
-                }
+                // Notifications are handled server-side
             }
         } catch (e) {
-            console.error("DB Insert Error", e);
+            console.error("Create Request Exception", e);
+            alert("Lỗi kết nối. Vui lòng kiểm tra mạng.");
         }
     };
 
