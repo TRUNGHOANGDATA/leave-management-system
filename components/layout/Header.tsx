@@ -24,7 +24,11 @@ import { vi } from 'date-fns/locale';
 import { useApp } from '@/context/AppContext';
 
 export default function Header() {
-    const { currentUser, settings, markNotificationRead } = useApp();
+    const { currentUser, settings, markNotificationRead, logout } = useApp();
+
+    const handleLogout = async () => {
+        await logout();
+    };
 
     // Filter notifications for current user
     const notifications = currentUser
@@ -166,7 +170,9 @@ export default function Header() {
                                     </DropdownMenuItem>
                                 )}
                                 <DropdownMenuSeparator />
-                                <DropdownMenuItem className="text-red-600">Đăng xuất</DropdownMenuItem>
+                                <DropdownMenuItem className="text-red-600 focus:bg-red-50 cursor-pointer" onClick={handleLogout}>
+                                    Đăng xuất
+                                </DropdownMenuItem>
                             </DropdownMenuContent>
                         </DropdownMenu>
 

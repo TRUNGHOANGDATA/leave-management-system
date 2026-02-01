@@ -74,6 +74,7 @@ interface AppContextType {
     notificationCount: number;
     markNotificationRead: (id: string) => Promise<void>;
     login: (userId: string) => void;
+    logout: () => Promise<void>;
     setWorkSchedule: (schedule: WorkScheduleType) => void;
     addHoliday: (date: Date, name: string) => void;
     removeHoliday: (dateStr: string) => void;
@@ -105,6 +106,7 @@ const AppContext = createContext<AppContextType>({
     notificationCount: 0,
     markNotificationRead: async () => { },
     login: () => { },
+    logout: async () => { },
     setWorkSchedule: () => { },
     addHoliday: () => { },
     removeHoliday: () => { },
@@ -269,29 +271,76 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     };
 
     // Load on mount
+    const [isLoading, setIsLoading] = useState(true);
+
+    // --- Authentication Logic ---
     useEffect(() => {
-        refreshData().then(() => setIsLoaded(true));
+        const checkUser = async () => {
+            try {
+                // 1. Check active session
+                const { data: { session } } = await supabase.auth.getSession();
+
+                if (session?.user) {
+                    await fetchUserProfile(session.user.id, session.user.email);
+                } else {
+                    setCurrentUser(null);
+                }
+            } catch (error) {
+                console.error("Auth check failed:", error);
+            } finally {
+                setIsLoading(false);
+            }
+        };
+
+        checkUser();
+
+        // 2. Listen for auth changes (Signed in, Signed out)
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+            if (event === 'SIGNED_IN' && session?.user) {
+                await fetchUserProfile(session.user.id, session.user.email);
+            } else if (event === 'SIGNED_OUT') {
+                setCurrentUser(null);
+            }
+        });
+
+        return () => {
+            subscription.unsubscribe();
+        };
     }, []);
 
-    // Initial Login - Auto select first user if no current user
-    useEffect(() => {
-        if (isLoaded && settings.users.length > 0 && !currentUser) {
-            const savedUser = localStorage.getItem("leaveApp_v4_user_id_ref"); // Changed key to avoid conflict with old obj
-            if (savedUser) {
-                const user = settings.users.find(u => u.id === savedUser);
-                setCurrentUser(user || settings.users[0]);
-            } else {
-                setCurrentUser(settings.users[0]);
-            }
-        }
-    }, [isLoaded, settings.users, currentUser]);
+    const fetchUserProfile = async (userId: string, email?: string) => {
+        try {
+            const { data, error } = await supabase
+                .from('users')
+                .select('*')
+                .eq('id', userId)
+                .single();
 
-    const login = (userId: string) => {
-        const user = settings.users.find(u => u.id === userId);
-        if (user) {
-            setCurrentUser(user);
-            localStorage.setItem("leaveApp_v4_user_id_ref", userId);
+            if (data) {
+                setCurrentUser(data as User);
+            } else if (email) {
+                // Fallback if public.users row missing
+                setCurrentUser({
+                    id: userId,
+                    email: email,
+                    name: email.split('@')[0],
+                    role: 'employee',
+                    department: 'Chưa cập nhật'
+                } as User);
+            }
+        } catch (err) {
+            console.error("Error fetching profile:", err);
         }
+    };
+
+    const login = async (userId: string) => {
+        console.warn("Legacy login called. Use Supabase Auth instead.");
+    };
+
+    const logout = async () => {
+        await supabase.auth.signOut();
+        setCurrentUser(null);
+        window.location.href = "/login";
     };
 
     const setWorkSchedule = (schedule: WorkScheduleType) => {
@@ -695,7 +744,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const notificationCount = currentUser ? settings.notifications.filter(n => n.recipientId === currentUser.id && !n.isRead).length : 0;
 
     return (
-        <AppContext.Provider value={{ settings, currentUser, notificationCount, markNotificationRead, login, setWorkSchedule, addHoliday, removeHoliday, setHolidays, addLeaveRequest, updateLeaveRequestStatus, cancelLeaveRequest, setUsers, addUser, updateUser, removeUser, addBulkUsers, refreshData, updateHoliday, importHolidays }}>
+        <AppContext.Provider value={{ settings, currentUser, notificationCount, markNotificationRead, login, logout, setWorkSchedule, addHoliday, removeHoliday, setHolidays, addLeaveRequest, updateLeaveRequestStatus, cancelLeaveRequest, setUsers, addUser, updateUser, removeUser, addBulkUsers, refreshData, updateHoliday, importHolidays }}>
             {children}
         </AppContext.Provider>
     );
