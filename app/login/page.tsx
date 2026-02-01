@@ -12,6 +12,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { Loader2, Mail, Lock, ArrowRight, ShieldCheck } from "lucide-react";
 
 import { useApp } from "@/context/AppContext";
+import { login } from "./actions";
 
 export default function LoginPage() {
     const [email, setEmail] = useState("");
@@ -46,61 +47,21 @@ export default function LoginPage() {
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
         setIsLoading(true);
-        console.log("Starting login for:", email);
 
         try {
-            // Create a timeout promise that rejects after 5 seconds
-            const timeoutPromise = new Promise((_, reject) => {
-                setTimeout(() => reject(new Error("Request timed out")), 5000);
-            });
+            const formData = new FormData();
+            formData.append("email", email);
+            formData.append("password", password);
 
-            // Race the auth call against the timeout
-            const { data, error } = await Promise.race([
-                supabase.auth.signInWithPassword({
-                    email,
-                    password,
-                }),
-                timeoutPromise
-            ]) as any;
+            // Call Server Action
+            const result = await login(formData);
 
-            console.log("Login result:", { data, error });
-
-            if (error) {
-                throw error;
+            if (result?.error) {
+                console.error("Login Result Error:", result.error);
+                throw new Error(result.error);
             }
 
-            toast({
-                title: "Đăng nhập thành công!",
-                description: "Đang chuyển hướng vào hệ thống...",
-                className: "bg-green-50 border-green-200 text-green-800"
-            });
-
-            // IMPORTANT: Don't set isLoading(false) here, or the spinner stops before redirect
-            // Let the redirect happen while the spinner is still showing for better UX
-
-            // Hybrid Strategy: Try fast router.push first, fallback to hard reload if stuck
-            console.log("Login successful, attempting navigation...");
-
-            // 1. Attempt Client-Side Navigation (Fastest)
-            // router.push("/dashboard"); 
-            // router.refresh();
-
-            // 2. Actually, let's stick to window.location.assign (Standard) 
-            // but wrapped in a slightly delayed execution to ensure the UI updates first
-            // and we set a fallback just in case execution halts.
-
-            setTimeout(() => {
-                window.location.assign("/dashboard");
-            }, 100);
-
-            // Safety Fallback: If 3 seconds pass and we make it here without unloading...
-            // It means the browser blocked the first attempt. Force reload.
-            setTimeout(() => {
-                if (window.location.pathname === "/login") {
-                    console.warn("Navigation fallback triggered");
-                    window.location.reload();
-                }
-            }, 3000);
+            // Success! Server action handles redirect.
 
         } catch (error: any) {
             console.error("Login error:", error);
@@ -109,7 +70,7 @@ export default function LoginPage() {
                 description: error.message || "Vui lòng kiểm tra lại thông tin.",
                 variant: "destructive",
             });
-            setIsLoading(false); // Only stop loading on error
+            setIsLoading(false);
         }
     };
 
