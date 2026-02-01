@@ -809,23 +809,22 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         }));
 
         try {
-            const { error, data } = await supabase
-                .from('leave_requests')
-                .update({
-                    status: status,
-                    approved_by_name: approverName || null,
-                    approved_at: new Date().toISOString(),
-                })
-                .eq('id', requestId)
-                .select();
+            // Use API for update (Reliable Server Auth)
+            const response = await fetch('/api/requests/status', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ requestId, status, approverName })
+            });
 
+            console.log("Update Status API Response:", response.status);
 
+            const result = await response.json();
 
-            if (error) {
-                console.error("Failed to update status:", error);
+            if (!response.ok || result.error) {
+                console.error("Failed to update status via API:", result.error);
                 // Rollback on error
                 setSettings(prev => ({ ...prev, leaveRequests: previousRequests }));
-                alert("Lỗi cập nhật trạng thái đơn. Vui lòng thử lại.");
+                alert("Lỗi cập nhật trạng thái đơn (API). Vui lòng thử lại.");
             } else {
                 await refreshData();
 
