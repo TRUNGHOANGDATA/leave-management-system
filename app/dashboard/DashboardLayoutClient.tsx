@@ -14,11 +14,13 @@ export default function DashboardLayout({
     const router = useRouter();
 
     // Client-side redirect removed in favor of Server Component protection
-    // useEffect(() => {
-    //     if (!isLoading && !currentUser) {
-    //         router.replace("/login");
-    //     }
-    // }, [currentUser, isLoading, router]);
+    // Client-side redirect fallback (Double check in case Server Component let through stale session)
+    useEffect(() => {
+        if (!isLoading && !currentUser) {
+            console.warn("Client auth check failed, redirecting to login...");
+            router.replace("/login");
+        }
+    }, [currentUser, isLoading, router]);
 
     // Show loading while checking auth
     if (isLoading) {
