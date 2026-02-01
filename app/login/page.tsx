@@ -22,16 +22,38 @@ export default function LoginPage() {
     // User can just log in manually if needed
 
 
+    // Force cleanup on mount to prevent stale state
+    useState(() => {
+        const cleanup = async () => {
+            // Check if session exists, if so, kill it to ensure fresh login
+            const { data } = await supabase.auth.getSession();
+            if (data.session) {
+                console.log("Cleaning up stale session...");
+                await supabase.auth.signOut();
+            }
+        };
+        cleanup();
+    });
+
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
         setIsLoading(true);
         console.log("Starting login for:", email);
 
         try {
-            const { data, error } = await supabase.auth.signInWithPassword({
-                email,
-                password,
+            // Create a timeout promise that rejects after 5 seconds
+            const timeoutPromise = new Promise((_, reject) => {
+                setTimeout(() => reject(new Error("Request timed out")), 5000);
             });
+
+            // Race the auth call against the timeout
+            const { data, error } = await Promise.race([
+                supabase.auth.signInWithPassword({
+                    email,
+                    password,
+                }),
+                timeoutPromise
+            ]) as any;
 
             console.log("Login result:", { data, error });
 
