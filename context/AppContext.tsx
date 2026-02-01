@@ -16,6 +16,7 @@ export type UserRole = "employee" | "manager" | "admin" | "hr" | "director";
 
 export interface User {
     id: string;
+    auth_id?: string;
     name: string;
     email: string;
     role: UserRole;
@@ -344,29 +345,28 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
                         userProfile = resId.data;
                     }
                     else if (email) {
-                        // 3. Try by EMAIL (Auto-linking for pre-imported users)
-                        const resEmail = await supabase
-                            .from('users')
-                            .select('*')
-                            .eq('email', email)
-                            .single();
+                        // 3. Try by EMAIL using Server-Side API (Bypasses RLS)
+                        try {
+                            console.log("Attempting to link profile via API...");
+                            const linkRes = await fetch('/api/auth/link-profile', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ userId, email })
+                            });
 
-                        if (resEmail.data) {
-                            console.log("Found user by email, linking auth_id...");
-                            // Update the auth_id for this user
-                            const { data: updatedUser, error: updateError } = await supabase
-                                .from('users')
-                                .update({ auth_id: userId })
-                                .eq('id', resEmail.data.id)
-                                .select()
-                                .single();
+                            const linkData = await linkRes.json();
 
-                            if (updatedUser) {
-                                userProfile = updatedUser;
+                            if (linkRes.ok && linkData.user) {
+                                console.log("Profile linked successfully via API");
+                                userProfile = linkData.user;
                             } else {
-                                userProfile = resEmail.data; // Use found data even if update fails (permissions?)
-                                console.warn("Failed to link auth_id:", updateError);
+                                console.warn("API Linking failed:", linkData.error || linkData.message);
+
+                                // Last resort: Fetch READ-ONLY data directly if possible (unlikely if RLS blocks, but try)
+                                // Or use what we have from auth
                             }
+                        } catch (apiError) {
+                            console.error("API call failed:", apiError);
                         }
                     }
                 }
@@ -375,13 +375,27 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             }
 
             if (userProfile) {
-                setCurrentUser(userProfile as User);
+                // Ensure name is never null/empty
+                const displayName = userProfile.name || (email ? email.split('@')[0] : "User");
+
+                const userData: User = {
+                    id: userProfile.id,      // public.users id
+                    auth_id: userProfile.auth_id,
+                    email: userProfile.email,
+                    name: displayName,       // Guaranteed string
+                    role: userProfile.role || 'employee',
+                    department: userProfile.department || 'Chưa cập nhật',
+                    avatarUrl: userProfile.avatar_url,
+                    jobTitle: userProfile.job_title
+                };
+                setCurrentUser(userData);
             } else if (email) {
-                // Fallback if public.users row missing entirely OR DB error occurred
+                // Total Fallback (Database completely inaccessible or user missing)
+                // We create a temporary session user so they aren't kicked out
                 setCurrentUser({
                     id: userId,
-                    email: email,
-                    name: email.split('@')[0],
+                    email: email || "",
+                    name: (email ? email.split('@')[0] : "User"),
                     role: 'employee',
                     department: 'Chưa cập nhật'
                 } as User);
