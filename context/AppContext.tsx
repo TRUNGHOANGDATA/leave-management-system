@@ -664,7 +664,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         // No optimistic update - wait for DB confirmation to avoid race conditions
 
         try {
-            const { error } = await supabase.from('leave_requests').insert({
+            const { error, data } = await supabase.from('leave_requests').insert({
                 user_id: request.userId,
                 type: request.type,
                 from_date: request.fromDate,
@@ -677,7 +677,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
                 status: 'pending',
                 request_details: request.requestDetails,
                 exemption_note: request.exemptionNote
-            });
+            }).select(); // Capture returned data
+
             if (error) {
                 console.error("Failed to add request:", error);
             } else {
@@ -690,14 +691,18 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
                 if (manager?.email) {
                     // Use configured SITE_URL for reliable production links
-                    const approveUrl = `${SITE_URL}/dashboard`;
+                    // Normalize SITE_URL to remove trailing slash if present
+                    const baseUrl = SITE_URL.endsWith('/') ? SITE_URL.slice(0, -1) : SITE_URL;
+                    // Construct correct deep link to the specific request
+                    const newRequestId = data?.[0]?.id || "";
+                    const approveUrl = newRequestId ? `${baseUrl}/approve/${newRequestId}` : `${baseUrl}/dashboard`;
 
                     // 1. Insert In-App Notification (with error logging)
                     supabase.from('notifications').insert({
                         recipient_id: manager.id,
                         actor_name: requester?.name || "Nhân viên",
                         message: `đã gửi đơn xin nghỉ: ${request.type}`,
-                        action_url: `/dashboard`, // Manager dashboard
+                        action_url: `/approve/${newRequestId}`, // Direct link in notification too
                         is_read: false
                     }).then(({ error }) => {
                         if (error) {
