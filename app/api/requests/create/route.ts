@@ -20,18 +20,53 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
         }
 
-        // 2. Resolve Public User ID (Fix FK Violation)
-        // The foreign key in leave_requests references public.users.id, not auth.users.id
-        const { data: publicUser, error: userLookupError } = await adminSupabase
+        // 2. Resolve Public User ID (Fix FK Violation) & Auto-Repair
+        let publicUserVal = null;
+
+        // A. Try Lookup by Auth ID
+        const { data: byAuth } = await adminSupabase
             .from('users')
-            .select('id')
+            .select('id, email, name, manager_id')
             .eq('auth_id', user.id)
             .single();
 
-        if (userLookupError || !publicUser) {
-            console.error("Public User Not Found for Auth ID:", user.id);
-            return NextResponse.json({ error: 'User profile not found. Please contact admin.' }, { status: 404 });
+        if (byAuth) {
+            publicUserVal = byAuth;
+        } else {
+            // B. Fallback: Lookup by Email (Auto-Link)
+            const { data: byEmail } = await adminSupabase
+                .from('users')
+                .select('id, email, name, manager_id')
+                .eq('email', user.email)
+                .single();
+
+            if (byEmail) {
+                // Link Account
+                console.log(`Auto-Linking user ${user.email}...`);
+                await adminSupabase.from('users').update({ auth_id: user.id }).eq('id', byEmail.id);
+                publicUserVal = byEmail;
+            } else {
+                // C. Fallback: Create New Profile (Auto-Register)
+                console.log(`Auto-Creating profile for ${user.email}...`);
+                const { data: newUser, error: createError } = await adminSupabase.from('users').insert({
+                    email: user.email,
+                    auth_id: user.id,
+                    name: user.user_metadata?.name || user.email?.split('@')[0],
+                    role: 'staff',
+                    department: 'General',
+                    job_title: 'Staff',
+                    employee_code: `NV_${user.id.substring(0, 4).toUpperCase()}`
+                }).select().single();
+
+                if (createError || !newUser) {
+                    console.error("Failed to auto-create user:", createError);
+                    return NextResponse.json({ error: 'Failed to create user profile.' }, { status: 500 });
+                }
+                publicUserVal = newUser;
+            }
         }
+
+        const publicUser = publicUserVal;
 
         // 3. Insert Request (RLS Safe via Server Client)
         const { data, error } = await supabase.from('leave_requests').insert({
