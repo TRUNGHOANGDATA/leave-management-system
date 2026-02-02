@@ -219,7 +219,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
                 console.log("Debug Fetch Request 0 CreatedAt:", requestsData[0].created_at);
             }
 
-            const allRequests = (requestsData || []).map(r => ({
+            const allRequests = (requestsData || []).map((r: any) => ({
                 id: r.id,
                 type: r.type,
                 fromDate: r.from_date,
