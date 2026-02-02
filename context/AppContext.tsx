@@ -210,6 +210,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             if (requestsError) throw requestsError;
             if (holidaysError) console.error("Error fetching holidays:", holidaysError);
 
+            if (requestsData && requestsData.length > 0) {
+                console.log("Debug Fetch Request 0:", requestsData[0]);
+                console.log("Debug Fetch Request 0 CreatedAt:", requestsData[0].created_at);
+            }
+
             const allRequests = (requestsData || []).map(r => ({
                 id: r.id,
                 type: r.type,
