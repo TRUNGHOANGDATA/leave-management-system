@@ -28,16 +28,24 @@ export default async function DashboardLayout({
     );
 
     // 2. Parallel Fetching for Hydration
-    const [profileRes, usersRes, requestsRes] = await Promise.all([
-        supabase.from('users').select('*').eq('auth_id', user.id).single(),
+    // We moved user profile fetch out for robustness, now just fetch users/requests
+    const [usersRes, requestsRes] = await Promise.all([
         adminSupabase.from('users').select('*').order('name'),
         supabase.from('leave_requests').select('*').order('created_at', { ascending: false })
     ]);
 
     // 3. Map User Profile
     let initialUser: User | null = null;
-    if (profileRes.data) {
-        const p = profileRes.data;
+
+    // Fetch profile with dual lookup (auth_id OR id)
+    const { data: profileData } = await supabase
+        .from('users')
+        .select('*')
+        .or(`auth_id.eq.${user.id},id.eq.${user.id}`)
+        .maybeSingle();
+
+    if (profileData) {
+        const p = profileData;
         initialUser = {
             id: p.id,
             auth_id: p.auth_id,
