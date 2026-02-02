@@ -44,13 +44,25 @@ export async function POST(request: Request) {
             const requesterId = updatedRequest.user_id;
 
             // Fetch Requester Email
+            // Fetch Requester Email
             const { data: requester, error: userError } = await adminSupabase // Use Admin Client for full user access
                 .from('users')
                 .select('email, name')
                 .eq('id', requesterId)
-                .single();
+                .maybeSingle(); // Safe lookup
 
-            if (requester && requester.email) {
+            // Fallback: If not found by ID, try finding by Auth ID (unlikely but possible if data is weird)
+            let targetRequester = requester;
+            if (!targetRequester) {
+                const { data: authRequester } = await adminSupabase
+                    .from('users')
+                    .select('email, name')
+                    .eq('auth_id', requesterId) // Try treating ID as Auth ID
+                    .maybeSingle();
+                targetRequester = authRequester;
+            }
+
+            if (targetRequester && targetRequester.email) {
                 const statusMessage = status === 'approved' ? 'DUYỆT' : status === 'rejected' ? 'TỪ CHỐI' : 'HUỶ DUYỆT';
                 const statusColor = status === 'approved' ? '#16a34a' : '#dc2626';
 
@@ -72,12 +84,12 @@ export async function POST(request: Request) {
                     },
                     body: JSON.stringify({
                         type: 'request_decision',
-                        to: requester.email,
+                        to: targetRequester.email,
                         data: {
-                            requesterName: requester.name || 'Nhân viên',
+                            requesterName: targetRequester.name || 'Nhân viên',
                             status: status,
                             statusColor: statusColor,
-                            approverName: approverName || 'Quản lý',
+                            approverName: approverName || "Quản lý",
                             fromDate: updatedRequest.from_date,
                             toDate: updatedRequest.to_date
                         }

@@ -28,7 +28,7 @@ export async function POST(request: Request) {
             .from('users')
             .select('id, email, name, manager_id')
             .eq('auth_id', user.id)
-            .single();
+            .maybeSingle(); // Safe lookup
 
         if (byAuth) {
             publicUserVal = byAuth;
@@ -38,12 +38,17 @@ export async function POST(request: Request) {
                 .from('users')
                 .select('id, email, name, manager_id')
                 .eq('email', user.email)
-                .single();
+                .maybeSingle();
 
             if (byEmail) {
                 // Link Account
-                console.log(`Auto-Linking user ${user.email}...`);
-                await adminSupabase.from('users').update({ auth_id: user.id }).eq('id', byEmail.id);
+                console.log(`Auto-Linking user ${user.email} (ID: ${byEmail.id}) to Auth ID ${user.id}...`);
+                const { error: linkError } = await adminSupabase
+                    .from('users')
+                    .update({ auth_id: user.id })
+                    .eq('id', byEmail.id);
+
+                if (linkError) console.error("Auto-Link Failed:", linkError);
                 publicUserVal = byEmail;
             } else {
                 // C. Fallback: Create New Profile (Auto-Register)
