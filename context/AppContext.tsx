@@ -50,6 +50,7 @@ export interface LeaveRequest {
         date: string;
         session: "morning" | "afternoon" | "full";
     }[];
+    createdAt?: string; // For sorting
 }
 
 export interface Notification {
@@ -236,7 +237,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
                 userId: r.user_id,
                 approvedBy: r.approved_by,
                 exemptionNote: r.exemption_note,
-                requestDetails: r.request_details
+                requestDetails: r.request_details,
+                createdAt: r.created_at
             }));
 
             // Map Users with Dynamic Calculation

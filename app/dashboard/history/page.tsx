@@ -90,7 +90,7 @@ function HistoryContent() {
                 }
                 return true;
             })
-            .sort((a, b) => new Date(b.fromDate).getTime() - new Date(a.fromDate).getTime());
+            .sort((a, b) => new Date(b.createdAt || b.fromDate).getTime() - new Date(a.createdAt || a.fromDate).getTime());
     }, [settings.leaveRequests, filterStatus, filterCategory, viewMode, currentUser, settings.users]);
 
     const isManagerView = viewMode === 'manager';
