@@ -328,7 +328,9 @@ export default function LeaveRequestPage() {
             requestDetails: details as any
         };
 
-        await addLeaveRequest(newRequest);
+        // Fire and forget: Navigate immediately for instant feedback
+        // The addLeaveRequest function already does optimistic update
+        addLeaveRequest(newRequest);
         router.push("/dashboard");
     };
 

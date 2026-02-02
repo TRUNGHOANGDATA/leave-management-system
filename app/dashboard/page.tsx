@@ -90,11 +90,15 @@ export default function Dashboard() {
         return settings.leaveRequests.filter(r => r.userId === currentUser?.id && r.status === "pending");
     }, [settings.leaveRequests, currentUser]);
 
-    // 4. Recent History (Top 3)
+    // 4. Recent History (Top 3) - Sort by CREATION DATE
     const recentHistory = useMemo(() => {
         return [...settings.leaveRequests]
             .filter(r => r.userId === currentUser?.id)
-            .sort((a, b) => new Date(b.fromDate).getTime() - new Date(a.fromDate).getTime())
+            .sort((a, b) => {
+                const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+                const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+                return timeB - timeA;
+            })
             .slice(0, 3);
     }, [settings.leaveRequests, currentUser]);
 
