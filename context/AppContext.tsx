@@ -234,9 +234,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
                 approvedBy: r.approved_by,
                 exemptionNote: r.exemption_note,
                 requestDetails: r.request_details,
-                createdAt: r.created_at
+                createdAt: r.createdAt || r.created_at // Use alias if available, else original
             }));
-
             // Map Users with Dynamic Calculation
             const mappedUsers: User[] = (usersData || []).map((u: any) => {
                 const entitlement = calculateEntitlement(u);

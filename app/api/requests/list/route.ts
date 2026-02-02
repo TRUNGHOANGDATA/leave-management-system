@@ -16,7 +16,8 @@ export async function GET() {
         // Fetch requests (RLS will filter automatically)
         const { data, error } = await supabase
             .from('leave_requests')
-            .select('*, created_at')
+            // Explicitly select and alias to ensure we get the data
+            .select('*, createdAt:created_at, created_at')
             .order('created_at', { ascending: false });
 
         if (error) {
