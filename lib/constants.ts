@@ -12,3 +12,15 @@ export const LEAVE_TYPES = {
     UNPAID: "Nghỉ không lương",
     OTHER: "Khác"
 };
+
+export const DEPARTMENTS = [
+    "Ban Giám Đốc",
+    "Phòng Nhân Sự (HR)",
+    "Phòng Kế Toán",
+    "Phòng Kinh Doanh (Sales)",
+    "Phòng Marketing",
+    "Phòng Kỹ Thuật (IT)",
+    "Phòng Vận Hành (Operations)",
+    "Phòng Chăm Sóc Khách Hàng",
+    "Khác"
+];

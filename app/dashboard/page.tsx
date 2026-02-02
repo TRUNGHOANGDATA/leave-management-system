@@ -14,6 +14,7 @@ import { vi } from "date-fns/locale";
 import { useMemo } from "react";
 import { UserSwitcher } from "@/components/dev/UserSwitcher";
 import { Check, X } from "lucide-react";
+import { UpdateProfileDialog } from "@/components/profile/UpdateProfileDialog";
 
 export default function Dashboard() {
     const { settings, currentUser, updateLeaveRequestStatus } = useApp();
@@ -452,8 +453,9 @@ export default function Dashboard() {
                 <div className="col-span-3 space-y-6">
                     {/* Profile Setup Widget */}
                     <Card className="border-slate-200 shadow-sm bg-slate-50/50">
-                        <CardHeader>
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                             <CardTitle className="text-base font-semibold text-slate-900">Thông tin nhân viên</CardTitle>
+                            <UpdateProfileDialog />
                         </CardHeader>
                         <CardContent>
                             <div className="flex items-center gap-4 mb-4">
