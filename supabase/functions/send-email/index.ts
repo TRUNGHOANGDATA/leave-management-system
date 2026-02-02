@@ -17,7 +17,7 @@ const SMTP_CONFIG = {
 const transporter = nodemailer.createTransport(SMTP_CONFIG);
 
 interface EmailRequest {
-  type: "new_request" | "request_decision";
+  type: "new_request" | "request_decision" | "password_reset";
   to: string;
   data: any;
 }
@@ -105,6 +105,19 @@ serve(async (req) => {
                   <p>Đơn xin nghỉ phép của bạn đã: <strong>${isApproved ? 'ĐƯỢC DUYỆT' : 'BỊ TỪ CHỐI'}</strong></p>
                   <p>Người duyệt: ${data.approverName}</p>
                 `;
+      } else if (type === "password_reset") {
+        subject = `[Leave App] Mã xác nhận đặt lại mật khẩu của bạn`;
+        bodyContent = `
+            <h2>🔐 Đặt lại mật khẩu</h2>
+            <p>Xin chào,</p>
+            <p>Bạn (hoặc ai đó) đã yêu cầu đặt lại mật khẩu cho tài khoản <strong>${to}</strong>.</p>
+            <p>Mã xác minh của bạn là:</p>
+            <div style="font-size: 32px; font-weight: bold; letter-spacing: 5px; color: #f59e0b; margin: 20px 0;">
+                ${data.otp}
+            </div>
+            <p>Mã này có hiệu lực trong 15 phút. Tuyệt đối không chia sẻ mã này cho bất kỳ ai.</p>
+            <p>Nếu bạn không yêu cầu, vui lòng bỏ qua email này.</p>
+        `;
       }
     }
 
