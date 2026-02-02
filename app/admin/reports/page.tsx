@@ -171,7 +171,7 @@ export default function ReportsPage() {
                 return {
                     name: u.name,
                     department: u.department,
-                    remaining: maxLeave - used,
+                    remaining: Math.max(0, maxLeave - used),
                     max: maxLeave,
                     used: used
                 };
