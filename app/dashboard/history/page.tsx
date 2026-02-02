@@ -97,7 +97,33 @@ function HistoryContent() {
             const dateA = a.createdAt ? new Date(a.createdAt).getTime() : new Date(a.fromDate).getTime();
             const dateB = b.createdAt ? new Date(b.createdAt).getTime() : new Date(b.fromDate).getTime();
             return dateB - dateA;
-        });
+        }, [settings.leaveRequests, filterStatus, filterCategory, viewMode, currentUser, settings.users]);
+
+        // Apply sorting AFTER deduplication to ensure order is respected
+        const sortedData = useMemo(() => {
+            const data = filteredData;
+
+            return [...data].sort((a, b) => {
+                // Priority: CreatedAt (if valid) > FromDate
+                const timeA = a.createdAt && !isNaN(new Date(a.createdAt).getTime())
+                    ? new Date(a.createdAt).getTime()
+                    : new Date(a.fromDate).getTime();
+
+                const timeB = b.createdAt && !isNaN(new Date(b.createdAt).getTime())
+                    ? new Date(b.createdAt).getTime()
+                    : new Date(b.fromDate).getTime();
+
+                // Descending order (Newest first)
+                if (timeB !== timeA) {
+                    return timeB - timeA;
+                }
+
+                // Tie-breaker: Fallback to ID or FromDate for stability
+                return new Date(b.fromDate).getTime() - new Date(a.fromDate).getTime();
+            });
+        }, [filteredData]);
+
+        return sortedData;
     }, [settings.leaveRequests, filterStatus, filterCategory, viewMode, currentUser, settings.users]);
 
     const isManagerView = viewMode === 'manager';

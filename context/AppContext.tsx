@@ -703,7 +703,20 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     // --- DB Operations ---
 
     const addLeaveRequest = async (request: LeaveRequest) => {
-        // No optimistic update - wait for DB confirmation to avoid race conditions
+        // Optimistic Update: Add to UI immediately to avoid lag
+        const tempId = `temp-${Date.now()}`;
+        const tempRequest: LeaveRequest = {
+            ...request,
+            id: tempId,
+            status: "pending", // Default status
+            createdAt: new Date().toISOString() // Ensure it sorts to top
+        };
+
+        setSettings(prev => ({
+            ...prev,
+            leaveRequests: [tempRequest, ...prev.leaveRequests]
+        }));
+
         try {
             // Use Secure Server API for Creation (Bypass Client RLS/Auth timing issues)
             const response = await fetch('/api/requests/create', {
@@ -717,6 +730,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             if (!response.ok || result.error) {
                 console.error("Failed to add request via API:", result.error);
                 alert(`Lỗi tạo đơn: ${result.error || 'Vui lòng thử lại'}`);
+                // Rollback optimistic update
+                setSettings(prev => ({
+                    ...prev,
+                    leaveRequests: prev.leaveRequests.filter(r => r.id !== tempId)
+                }));
             } else {
                 refreshData();
                 // Notifications are handled server-side
@@ -724,6 +742,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         } catch (e) {
             console.error("Create Request Exception", e);
             alert("Lỗi kết nối. Vui lòng kiểm tra mạng.");
+            // Rollback
+            setSettings(prev => ({
+                ...prev,
+                leaveRequests: prev.leaveRequests.filter(r => r.id !== tempId)
+            }));
         }
     };
 
