@@ -94,21 +94,22 @@ function HistoryContent() {
         const uniqueData = Array.from(new Map(filteredData.map(item => [item.id, item])).values());
 
         return uniqueData.sort((a, b) => {
-            // Priority: CreatedAt (if valid) > FromDate
+            // Priority: CreatedAt ONLY
+            // If createdAt is missing/invalid, treat as 0 (oldest) to push to bottom
             const timeA = a.createdAt && !isNaN(new Date(a.createdAt).getTime())
                 ? new Date(a.createdAt).getTime()
-                : new Date(a.fromDate).getTime();
+                : 0;
 
             const timeB = b.createdAt && !isNaN(new Date(b.createdAt).getTime())
                 ? new Date(b.createdAt).getTime()
-                : new Date(b.fromDate).getTime();
+                : 0;
 
             // Descending order (Newest first)
             if (timeB !== timeA) {
                 return timeB - timeA;
             }
 
-            // Tie-breaker: Fallback to ID or FromDate for stability
+            // Tie-breaker: FromDate descending
             return new Date(b.fromDate).getTime() - new Date(a.fromDate).getTime();
         });
     }, [settings.leaveRequests, filterStatus, filterCategory, viewMode, currentUser, settings.users]);
