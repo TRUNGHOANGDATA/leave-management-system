@@ -94,15 +94,14 @@ function HistoryContent() {
         const uniqueData = Array.from(new Map(filteredData.map(item => [item.id, item])).values());
 
         return uniqueData.sort((a, b) => {
-            // Priority: CreatedAt ONLY
-            // If createdAt is missing/invalid, treat as 0 (oldest) to push to bottom
+            // Priority: CreatedAt > FromDate (Fallback for old data)
             const timeA = a.createdAt && !isNaN(new Date(a.createdAt).getTime())
                 ? new Date(a.createdAt).getTime()
-                : 0;
+                : new Date(a.fromDate).getTime();
 
             const timeB = b.createdAt && !isNaN(new Date(b.createdAt).getTime())
                 ? new Date(b.createdAt).getTime()
-                : 0;
+                : new Date(b.fromDate).getTime();
 
             // Descending order (Newest first)
             if (timeB !== timeA) {
