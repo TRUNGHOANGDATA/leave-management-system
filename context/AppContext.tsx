@@ -791,25 +791,48 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     };
 
     const cancelLeaveRequest = async (requestId: string) => {
+        // Handle Optimistic (Temp) Requests locally
+        if (requestId.startsWith('temp-')) {
+            console.log("Cancelling temp request locally:", requestId);
+            setSettings(prev => ({
+                ...prev,
+                leaveRequests: prev.leaveRequests.filter(req => req.id !== requestId)
+            }));
+            return; // Don't send to API
+        }
+
+        const previousRequests = settings.leaveRequests;
+        // Optimistic update
         setSettings(prev => ({
             ...prev,
             leaveRequests: prev.leaveRequests.map(req =>
-                req.id === requestId && req.status === "pending"
-                    ? { ...req, status: "cancelled" as const }
-                    : req
+                req.id === requestId ? { ...req, status: "cancelled" } : req
             )
         }));
 
         try {
-            const { error } = await supabase
-                .from('leave_requests')
-                .update({ status: 'cancelled' })
-                .eq('id', requestId);
+            // Use API for update (Consistent with other actions)
+            const response = await fetch('/api/requests/status', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ requestId, status: 'cancelled' })
+            });
 
-            if (error) throw error;
-            refreshData();
+            const result = await response.json();
+
+            if (!response.ok || result.error) {
+                console.error("Failed to cancel request:", result.error);
+                alert(`Lỗi huỷ đơn: ${result.error || 'Vui lòng thử lại'}`);
+                // Revert
+                setSettings(prev => ({ ...prev, leaveRequests: previousRequests }));
+            } else {
+                refreshData();
+            }
         } catch (e) {
-            console.error("DB Cancel Error", e);
+            console.error("Cancel Request Exception", e);
+            alert("Lỗi kết nối. Vui lòng thử lại.");
+            // Revert
+            setSettings(prev => ({ ...prev, leaveRequests: previousRequests }));
         }
     };
 
