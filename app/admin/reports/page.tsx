@@ -152,20 +152,23 @@ export default function ReportsPage() {
 
     // Employees with low leave balance (< 5 days) - DYNAMIC CALCULATION
     const lowBalanceEmployees = useMemo(() => {
-        const currentYear = new Date().getFullYear();
+        const from = parseISO(chartFromDate);
+        const to = parseISO(chartToDate);
 
         return settings.users
             .filter(u => u.role !== 'admin')
             .map(u => {
                 const maxLeave = calculateEntitlement(u);
 
-                // Calculate used days in current calendar year
+                // Calculate used days within the selected date range
                 const used = settings.leaveRequests
-                    .filter(r =>
-                        r.userId === u.id &&
-                        r.status === 'approved' &&
-                        parseISO(r.fromDate).getFullYear() === currentYear
-                    )
+                    .filter(r => {
+                        if (r.userId !== u.id || r.status !== 'approved') return false;
+                        const rFrom = parseISO(r.fromDate);
+                        const rTo = parseISO(r.toDate);
+                        // Check if request overlaps with selected range
+                        return (rFrom >= from && rFrom <= to) || (rTo >= from && rTo <= to) || (rFrom <= from && rTo >= to);
+                    })
                     .reduce((sum, r) => sum + (r.daysAnnual || 0), 0);
 
                 return {
@@ -179,7 +182,7 @@ export default function ReportsPage() {
             .filter(u => u.remaining < 5)
             .sort((a, b) => a.remaining - b.remaining)
             .slice(0, 5);
-    }, [settings.users, settings.leaveRequests]);
+    }, [settings.users, settings.leaveRequests, chartFromDate, chartToDate]);
 
     // Weekday Analysis - only show working days based on workSchedule
     const weekdayData = useMemo(() => {
@@ -493,7 +496,7 @@ export default function ReportsPage() {
                                                 <span className="font-medium text-slate-800">{e.name}</span>
                                                 <span className="text-xs text-slate-500 ml-2">({e.department})</span>
                                                 <div className="text-[10px] text-slate-400 mt-0.5">
-                                                    Tổng quy định: <span className="font-medium">{e.max}</span> • Đã nghỉ: <span className="font-medium">{e.used}</span>
+                                                    Tổng quy định: <span className="font-medium">{e.max}</span> • Đã xin nghỉ: <span className="font-medium">{e.used}</span>
                                                 </div>
                                             </div>
                                             <span className={`text-sm font-bold ${e.remaining <= 2 ? 'text-red-600' : 'text-orange-600'}`}>
