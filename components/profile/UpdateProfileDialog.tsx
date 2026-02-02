@@ -23,6 +23,7 @@ export function UpdateProfileDialog() {
     const [managerId, setManagerId] = useState("");
     const [jobTitle, setJobTitle] = useState("");
     const [phone, setPhone] = useState("");
+    const [startDate, setStartDate] = useState("");
 
     // Initialize form when opening
     useEffect(() => {
@@ -32,6 +33,7 @@ export function UpdateProfileDialog() {
             setManagerId(currentUser.managerId || "");
             setJobTitle(currentUser.jobTitle || "");
             setPhone(currentUser.phone || "");
+            setStartDate(currentUser.startDate || "");
         }
     }, [currentUser, open]);
 
@@ -53,7 +55,8 @@ export function UpdateProfileDialog() {
                 department,
                 managerId: managerId === "none" ? undefined : managerId,
                 jobTitle,
-                phone
+                phone,
+                startDate
             });
 
             toast({
@@ -172,6 +175,20 @@ export function UpdateProfileDialog() {
                             onChange={(e) => setPhone(e.target.value)}
                             className="col-span-3"
                             placeholder="0912345678"
+                        />
+                    </div>
+
+                    {/* Start Date */}
+                    <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="startDate" className="text-right text-slate-500">
+                            Ngày vào làm
+                        </Label>
+                        <Input
+                            id="startDate"
+                            type="date"
+                            value={startDate}
+                            onChange={(e) => setStartDate(e.target.value)}
+                            className="col-span-3"
                         />
                     </div>
                 </div>

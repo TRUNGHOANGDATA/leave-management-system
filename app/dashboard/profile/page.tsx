@@ -153,16 +153,53 @@ export default function ProfilePage() {
                 </CardHeader>
                 <CardContent className="grid gap-6 md:grid-cols-2">
                     <div className="space-y-2">
-                        <Label className="text-slate-500">Phòng ban</Label>
-                        <div className="font-medium p-2 bg-slate-50 rounded border">{currentUser.department}</div>
+                        <Label htmlFor="department">Phòng ban</Label>
+                        {/* Note: In a real app, importing DEPARTMENTS from constants would be better, but for speed injecting options here or keeping input if simple */}
+                        <select
+                            id="department"
+                            className="flex h-10 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm ring-offset-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-950 disabled:cursor-not-allowed disabled:opacity-50"
+                            value={currentUser.department || ""}
+                            onChange={(e) => updateUser({ ...currentUser, department: e.target.value })}
+                        >
+                            <option value="">Chọn phòng ban</option>
+                            <option value="Ban Giám Đốc">Ban Giám Đốc</option>
+                            <option value="Phòng Nhân Sự (HR)">Phòng Nhân Sự (HR)</option>
+                            <option value="Phòng Kế Toán">Phòng Kế Toán</option>
+                            <option value="Phòng Kinh Doanh (Sales)">Phòng Kinh Doanh (Sales)</option>
+                            <option value="Phòng Marketing">Phòng Marketing</option>
+                            <option value="Phòng Kỹ Thuật (IT)">Phòng Kỹ Thuật (IT)</option>
+                            <option value="Phòng Vận Hành (Operations)">Phòng Vận Hành (Operations)</option>
+                            <option value="Phòng Chăm Sóc Khách Hàng">Phòng Chăm Sóc Khách Hàng</option>
+                            <option value="Khác">Khác</option>
+                        </select>
                     </div>
                     <div className="space-y-2">
-                        <Label className="text-slate-500">Vị trí / Khoa</Label>
-                        <div className="font-medium p-2 bg-slate-50 rounded border">{currentUser.workLocation || "---"}</div>
+                        <Label htmlFor="workLocation">Vị trí / Khoa</Label>
+                        <Input
+                            id="workLocation"
+                            value={currentUser.workLocation || ""}
+                            onChange={(e) => updateUser({ ...currentUser, workLocation: e.target.value })}
+                            placeholder="Văn phòng chính / Chi nhánh..."
+                        />
                     </div>
                     <div className="space-y-2">
-                        <Label className="text-slate-500">Chức danh</Label>
-                        <div className="font-medium p-2 bg-slate-50 rounded border">{currentUser.jobTitle || "---"}</div>
+                        <Label htmlFor="jobTitle">Chức danh</Label>
+                        <Input
+                            id="jobTitle"
+                            value={currentUser.jobTitle || ""}
+                            onChange={(e) => updateUser({ ...currentUser, jobTitle: e.target.value })}
+                            placeholder="VD: Senior Developer"
+                        />
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="startDate">Ngày vào làm</Label>
+                        <Input
+                            id="startDate"
+                            type="date"
+                            value={currentUser.startDate || ""}
+                            onChange={(e) => updateUser({ ...currentUser, startDate: e.target.value })}
+                        />
+                        <p className="text-[10px] text-slate-500">Dùng để tính phép năm.</p>
                     </div>
                     <div className="space-y-2">
                         <Label className="text-slate-500">Vai trò hệ thống</Label>
