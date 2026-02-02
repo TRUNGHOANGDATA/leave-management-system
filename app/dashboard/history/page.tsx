@@ -89,8 +89,16 @@ function HistoryContent() {
                     return item.type !== "Nghỉ không lương" && !["Nghỉ cưới (bản thân)", "Nghỉ cưới (con)", "Nghỉ tang (cha mẹ/vợ chồng/con)", "Nghỉ tang (ông bà/anh chị em)"].includes(item.type);
                 }
                 return true;
-            })
-            .sort((a, b) => new Date(b.createdAt || b.fromDate).getTime() - new Date(a.createdAt || a.fromDate).getTime());
+            });
+
+        // Deduplicate by ID
+        const uniqueData = Array.from(new Map(data.map(item => [item.id, item])).values());
+
+        return uniqueData.sort((a, b) => {
+            const dateA = a.createdAt ? new Date(a.createdAt).getTime() : new Date(a.fromDate).getTime();
+            const dateB = b.createdAt ? new Date(b.createdAt).getTime() : new Date(b.fromDate).getTime();
+            return dateB - dateA;
+        });
     }, [settings.leaveRequests, filterStatus, filterCategory, viewMode, currentUser, settings.users]);
 
     const isManagerView = viewMode === 'manager';

@@ -276,9 +276,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
             setSettings(prev => ({
                 ...prev,
+                leaveRequests: allRequests, // Replace entire array to prevent duplicates
                 users: mappedUsers,
-                leaveRequests: allRequests, // Replace with loaded requests,
-                notifications: (notifData || []).map(n => ({
+                notifications: (notifData || []).map((n: any) => ({
                     id: n.id,
                     recipientId: n.recipient_id,
                     actorName: n.actor_name,
