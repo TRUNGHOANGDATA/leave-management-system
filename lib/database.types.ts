@@ -127,6 +127,7 @@ export type Database = {
                     name: string
                     role: string
                     updated_at: string | null
+                    annual_leave_remaining: number | null
                 }
                 Insert: {
                     avatar_url?: string | null
@@ -138,6 +139,7 @@ export type Database = {
                     name: string
                     role?: string
                     updated_at?: string | null
+                    annual_leave_remaining?: number
                 }
                 Update: {
                     avatar_url?: string | null
