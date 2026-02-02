@@ -65,55 +65,6 @@ export default function Header() {
                 <div className="flex flex-1 items-center justify-end space-x-4">
                     <nav className="flex items-center space-x-2">
 
-                        {/* Notification Bell */}
-                        <Popover>
-                            <PopoverTrigger asChild>
-                                <Button variant="ghost" size="icon" className="relative hover:bg-slate-100 rounded-full">
-                                    <Bell className="h-5 w-5 text-slate-600" />
-                                    {unreadCount > 0 && (
-                                        <span className="absolute top-2 right-2 h-2.5 w-2.5 rounded-full border-2 border-white bg-red-600"></span>
-                                    )}
-                                </Button>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-80 p-0 shadow-xl border-slate-100" align="end">
-                                <div className="flex items-center justify-between px-4 py-3 border-b bg-slate-50/50">
-                                    <h4 className="font-semibold text-sm">Thông báo</h4>
-                                    <span className="text-xs text-blue-600 cursor-pointer hover:underline" onClick={handleMarkAllRead}>Đánh dấu đã đọc</span>
-                                </div>
-                                <div className="max-h-[80vh] overflow-y-auto">
-                                    {notifications.length === 0 ? (
-                                        <div className="p-4 text-center text-sm text-slate-500">
-                                            Không có thông báo mới
-                                        </div>
-                                    ) : (
-                                        notifications.map((item) => (
-                                            <div key={item.id} className={`flex items-start gap-3 p-3 border-b border-slate-50 hover:bg-slate-50 transition-colors cursor-pointer ${!item.isRead ? 'bg-blue-50/30' : ''}`} onClick={() => handleNotificationClick(item)}>
-                                                <div className="relative h-9 w-9 flex-shrink-0 overflow-hidden rounded-full bg-slate-200">
-                                                    <span className="flex h-full w-full items-center justify-center font-bold text-xs text-slate-600">
-                                                        {(item.actorName || '?').charAt(0)}
-                                                    </span>
-                                                </div>
-                                                <div className="flex-1 space-y-1">
-                                                    <p className="text-xs text-slate-800 leading-snug">
-                                                        <span className="font-bold text-slate-900">{item.actorName || 'Unknown'}</span> {item.message || ''}
-                                                    </p>
-                                                    <p className="text-[10px] text-slate-400 font-medium">
-                                                        {item.createdAt && !isNaN(new Date(item.createdAt).getTime())
-                                                            ? formatDistanceToNow(new Date(item.createdAt), { addSuffix: true, locale: vi })
-                                                            : 'Vừa xong'}
-                                                    </p>
-                                                </div>
-                                                {!item.isRead && <div className="h-1.5 w-1.5 rounded-full bg-blue-600 mt-1.5"></div>}
-                                            </div>
-                                        ))
-                                    )}
-                                </div>
-                                <div className="p-2 text-center bg-slate-50/30">
-                                    <span className="text-xs font-medium text-slate-500 hover:text-primary cursor-pointer">Xem tất cả thông báo</span>
-                                </div>
-                            </PopoverContent>
-                        </Popover>
-
                         {/* User Dropdown */}
                         <DropdownMenu>
                             <DropdownMenuTrigger asChild>
