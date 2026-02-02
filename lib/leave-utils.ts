@@ -11,8 +11,8 @@ export const calculateEntitlement = (user: any, targetDate: Date = new Date()) =
 
     if (!user) return 0; // Guard against null user
 
-    // Default to 12 if no startDate
-    if (!user.start_date && !user.startDate && !user.createdAt) return 12;
+    // Default to 0 if no startDate (Must update profile first)
+    if (!user.start_date && !user.startDate && !user.createdAt) return 0;
 
     let dateStr = user.start_date || user.startDate || user.createdAt;
     let start = new Date(dateStr);

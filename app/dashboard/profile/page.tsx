@@ -11,8 +11,14 @@ import { useToast } from "@/components/ui/use-toast";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 export default function ProfilePage() {
-    const { currentUser, updateUser } = useApp();
+    const { currentUser, updateUser, settings } = useApp();
     const { toast } = useToast();
+
+    // Filter potential managers
+    const potentialManagers = settings.users?.filter(u =>
+        (u.role === 'manager' || u.role === 'director' || u.role === 'admin') &&
+        u.id !== currentUser?.id
+    ) || [];
 
     const [formData, setFormData] = useState({
         name: "",
@@ -141,6 +147,26 @@ export default function ProfilePage() {
                                     <Input id="code" value={currentUser.employeeCode || "---"} disabled className="bg-slate-50 text-slate-500" />
                                 </div>
                             </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                                <div className="space-y-2">
+                                    <Label htmlFor="manager" className="text-sm font-medium">Quản lý trực tiếp</Label>
+                                    <select
+                                        id="manager"
+                                        className="flex h-10 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm ring-offset-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-950 disabled:cursor-not-allowed disabled:opacity-50"
+                                        value={currentUser.managerId || ""}
+                                        onChange={(e) => updateUser({ ...currentUser, managerId: e.target.value === "none" ? undefined : e.target.value })}
+                                    >
+                                        <option value="none">-- Không có / Tự quản lý --</option>
+                                        {potentialManagers.map((m) => (
+                                            <option key={m.id} value={m.id}>
+                                                {m.name} ({m.department})
+                                            </option>
+                                        ))}
+                                    </select>
+                                    <p className="text-[10px] text-slate-500">Người duyệt đơn nghỉ phép của bạn.</p>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </CardContent>
@@ -215,6 +241,6 @@ export default function ProfilePage() {
                     {isLoading ? "Đang lưu..." : "Lưu thay đổi"}
                 </Button>
             </div>
-        </div>
+        </div >
     );
 }
