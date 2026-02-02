@@ -64,6 +64,10 @@ export async function GET() {
                 } else {
                     logs.push({ step: "Fix Manager", error: "No other users found to be manager" });
                 }
+            } else {
+                // Check existing manager
+                const { data: manager } = await supabase.from('users').select('*').eq('id', user.manager_id).maybeSingle();
+                logs.push({ step: "Manager Check", managerId: user.manager_id, managerData: manager });
             }
         } else {
             logs.push({ step: "User Check", error: "User tradaexcel NOT found in public.users", dbError: userError });
