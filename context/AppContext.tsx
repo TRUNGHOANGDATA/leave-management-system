@@ -722,7 +722,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             const response = await fetch('/api/requests/create', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ requestData: request })
+                body: JSON.stringify({ requestData: request }),
+                keepalive: true // Ensure request survives navigation
             });
 
             const result = await response.json();
@@ -769,7 +770,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             const response = await fetch('/api/requests/status', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ requestId, status, approverName })
+                body: JSON.stringify({ requestId, status, approverName }),
+                keepalive: true
             });
 
             console.log("Update Status API Response:", response.status);
