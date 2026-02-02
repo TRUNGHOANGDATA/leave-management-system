@@ -167,6 +167,7 @@ function HistoryContent() {
                         <TableRow>
                             {isManagerView && <TableHead className="w-[180px]">Nhân viên</TableHead>}
                             <TableHead className="w-[160px]">Loại nghỉ</TableHead>
+                            <TableHead>Ngày tạo</TableHead>
                             <TableHead>Thời gian</TableHead>
                             <TableHead className="text-center w-[80px]">Phép</TableHead>
                             <TableHead className="text-center w-[90px]">Không lương</TableHead>
@@ -190,6 +191,13 @@ function HistoryContent() {
                                         <div className="flex items-center text-slate-600">
                                             {getTypeIcon(request.type)}
                                             <span className="truncate max-w-[140px]" title={request.type}>{request.type}</span>
+                                        </div>
+                                    </TableCell>
+                                    <TableCell>
+                                        <div className="text-sm font-medium">
+                                            {request.createdAt && !isNaN(new Date(request.createdAt).getTime())
+                                                ? format(new Date(request.createdAt), "dd/MM/yyyy HH:mm", { locale: vi })
+                                                : <span className="text-slate-400 italic">--</span>}
                                         </div>
                                     </TableCell>
                                     <TableCell>
