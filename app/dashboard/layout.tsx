@@ -89,7 +89,8 @@ export default async function DashboardLayout({
         userId: r.user_id,
         approvedBy: r.approved_by,
         exemptionNote: r.exemption_note,
-        requestDetails: r.request_details
+        requestDetails: r.request_details,
+        createdAt: r.created_at // This was the missing field!
     }));
 
     return (
