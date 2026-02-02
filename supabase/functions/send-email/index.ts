@@ -71,6 +71,7 @@ serve(async (req) => {
         statusText: isApproved ? "ĐƯỢC DUYỆT" : "BỊ TỪ CHỐI",
         statusBadge: isApproved ? "ĐÃ DUYỆT" : "TỪ CHỐI",
         statusStyle: isApproved ? "color: #16a34a; font-weight: bold; font-family: Arial, sans-serif;" : "color: #dc2626; font-weight: bold; font-family: Arial, sans-serif;",
+        statusColor: isApproved ? "#16a34a" : "#dc2626", // ADDED: Missing statusColor variable
       };
       console.log("[Email] Status normalized:", { rawStatus, isApproved, displayStatus: enrichedData.status });
     }
