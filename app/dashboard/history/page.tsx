@@ -80,19 +80,18 @@ function HistoryContent() {
             data = data.filter(item => item.status === filterStatus);
         }
 
-        return data
-            .filter(item => {
-                if (filterCategory === "all") return true;
-                if (filterCategory === "unpaid") return item.type === "Nghỉ không lương";
-                if (filterCategory === "allowance") return ["Nghỉ cưới (bản thân)", "Nghỉ cưới (con)", "Nghỉ tang (cha mẹ/vợ chồng/con)", "Nghỉ tang (ông bà/anh chị em)"].includes(item.type);
-                if (filterCategory === "paid") {
-                    return item.type !== "Nghỉ không lương" && !["Nghỉ cưới (bản thân)", "Nghỉ cưới (con)", "Nghỉ tang (cha mẹ/vợ chồng/con)", "Nghỉ tang (ông bà/anh chị em)"].includes(item.type);
-                }
-                return true;
-            });
+        const filteredData = data.filter(item => {
+            if (filterCategory === "all") return true;
+            if (filterCategory === "unpaid") return item.type === "Nghỉ không lương";
+            if (filterCategory === "allowance") return ["Nghỉ cưới (bản thân)", "Nghỉ cưới (con)", "Nghỉ tang (cha mẹ/vợ chồng/con)", "Nghỉ tang (ông bà/anh chị em)"].includes(item.type);
+            if (filterCategory === "paid") {
+                return item.type !== "Nghỉ không lương" && !["Nghỉ cưới (bản thân)", "Nghỉ cưới (con)", "Nghỉ tang (cha mẹ/vợ chồng/con)", "Nghỉ tang (ông bà/anh chị em)"].includes(item.type);
+            }
+            return true;
+        });
 
         // Deduplicate by ID
-        const uniqueData = Array.from(new Map(data.map(item => [item.id, item])).values());
+        const uniqueData = Array.from(new Map(filteredData.map(item => [item.id, item])).values());
 
         return uniqueData.sort((a, b) => {
             const dateA = a.createdAt ? new Date(a.createdAt).getTime() : new Date(a.fromDate).getTime();

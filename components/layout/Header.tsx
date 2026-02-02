@@ -2,13 +2,8 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
-import { Bell, Menu, Search, User, ChevronDown } from 'lucide-react';
+import { Menu, Search, User, ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import {
-    Popover,
-    PopoverContent,
-    PopoverTrigger,
-} from '@/components/ui/popover';
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -19,34 +14,13 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
-import { formatDistanceToNow } from 'date-fns';
-import { vi } from 'date-fns/locale';
-
 import { useApp } from '@/context/AppContext';
 
 export default function Header() {
-    const { currentUser, settings, markNotificationRead, logout } = useApp();
+    const { currentUser, settings, logout } = useApp();
 
     const handleLogout = async () => {
         await logout();
-    };
-
-    // Filter notifications for current user (Match ID or Auth ID)
-    const notifications = currentUser
-        ? settings.notifications.filter(n => n.recipientId === currentUser.id || n.recipientId === currentUser.auth_id)
-        : [];
-
-    const unreadCount = notifications.filter((n) => !n.isRead).length;
-
-    const handleMarkAllRead = () => {
-        notifications.forEach(n => {
-            if (!n.isRead) markNotificationRead(n.id);
-        });
-    };
-
-    const handleNotificationClick = (notif: any) => {
-        if (!notif.isRead) markNotificationRead(notif.id);
-        // Optional: Navigate to actionUrl
     };
 
     return (

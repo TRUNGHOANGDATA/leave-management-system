@@ -53,30 +53,21 @@ export interface LeaveRequest {
     createdAt?: string; // For sorting
 }
 
-export interface Notification {
-    id: string;
-    recipientId: string;
-    actorName: string;
-    message: string;
-    actionUrl?: string;
-    isRead: boolean;
-    createdAt: string;
-}
+
 
 interface AppSettings {
     workSchedule: WorkScheduleType;
     customHolidays: CustomHoliday[];
     leaveRequests: LeaveRequest[];
     users: User[];
-    notifications: Notification[];
+
 }
 
 interface AppContextType {
     settings: AppSettings;
     currentUser: User | null;
     isLoading: boolean;
-    notificationCount: number;
-    markNotificationRead: (id: string) => Promise<void>;
+
     login: (userId: string) => void;
     logout: () => Promise<void>;
     setWorkSchedule: (schedule: WorkScheduleType) => void;
@@ -102,15 +93,14 @@ const defaultSettings: AppSettings = {
     customHolidays: [],
     leaveRequests: [],
     users: [], // Initial empty, will load from DB
-    notifications: []
+
 };
 
 const AppContext = createContext<AppContextType>({
     settings: defaultSettings,
     currentUser: null,
     isLoading: true,
-    notificationCount: 0,
-    markNotificationRead: async () => { },
+
     login: () => { },
     logout: async () => { },
     setWorkSchedule: () => { },
@@ -205,12 +195,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             const [
                 usersResponse,
                 { data: requestsData, error: requestsError },
-                { data: notifData, error: notifError },
                 { data: holidaysData, error: holidaysError }
             ] = await Promise.all([
                 fetch('/api/users/directory'),
                 supabase.from('leave_requests').select('*, created_at').order('created_at', { ascending: false }),
-                supabase.from('notifications').select('*').order('created_at', { ascending: false }),
                 supabase.from('public_holidays').select('*').order('date', { ascending: true })
             ]);
 
@@ -220,7 +208,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
             if (usersError) throw new Error(usersError);
             if (requestsError) throw requestsError;
-            if (notifError) throw notifError;
             if (holidaysError) console.error("Error fetching holidays:", holidaysError);
 
             const allRequests = (requestsData || []).map(r => ({
@@ -278,15 +265,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
                 ...prev,
                 leaveRequests: allRequests, // Replace entire array to prevent duplicates
                 users: mappedUsers,
-                notifications: (notifData || []).map((n: any) => ({
-                    id: n.id,
-                    recipientId: n.recipient_id,
-                    actorName: n.actor_name,
-                    message: n.message,
-                    actionUrl: n.action_url,
-                    isRead: n.is_read,
-                    createdAt: n.created_at
-                })),
                 customHolidays: (holidaysData || []).map(h => ({
                     id: h.id, // Ensure ID is mapped
                     date: h.date, // YYYY-MM-DD
@@ -812,20 +790,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         }
     };
 
-    const markNotificationRead = async (id: string) => {
-        // Optimistic
-        setSettings(prev => ({
-            ...prev,
-            notifications: prev.notifications.map(n => n.id === id ? { ...n, isRead: true } : n)
-        }));
-        await supabase.from('notifications').update({ is_read: true }).eq('id', id);
-        // No need to refresh immediately
-    };
-
-    const notificationCount = currentUser ? settings.notifications.filter(n => n.recipientId === currentUser.id && !n.isRead).length : 0;
-
     return (
-        <AppContext.Provider value={{ settings, currentUser, isLoading, notificationCount, markNotificationRead, login, logout, setWorkSchedule, addHoliday, removeHoliday, setHolidays, addLeaveRequest, updateLeaveRequestStatus, cancelLeaveRequest, setUsers, addUser, updateUser, removeUser, addBulkUsers, refreshData, updateHoliday, importHolidays, setData }}>
+        <AppContext.Provider value={{ settings, currentUser, isLoading, login, logout, setWorkSchedule, addHoliday, removeHoliday, setHolidays, addLeaveRequest, updateLeaveRequestStatus, cancelLeaveRequest, setUsers, addUser, updateUser, removeUser, addBulkUsers, refreshData, updateHoliday, importHolidays, setData }}>
             {children}
         </AppContext.Provider>
     );
