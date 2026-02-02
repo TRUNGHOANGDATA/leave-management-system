@@ -31,9 +31,9 @@ export default function Header() {
         await logout();
     };
 
-    // Filter notifications for current user
+    // Filter notifications for current user (Match ID or Auth ID)
     const notifications = currentUser
-        ? settings.notifications.filter(n => n.recipientId === currentUser.id)
+        ? settings.notifications.filter(n => n.recipientId === currentUser.id || n.recipientId === currentUser.auth_id)
         : [];
 
     const unreadCount = notifications.filter((n) => !n.isRead).length;

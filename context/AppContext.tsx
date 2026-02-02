@@ -209,7 +209,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
                 { data: holidaysData, error: holidaysError }
             ] = await Promise.all([
                 fetch('/api/users/directory'),
-                supabase.from('leave_requests').select('*'),
+                supabase.from('leave_requests').select('*, created_at'),
                 supabase.from('notifications').select('*').order('created_at', { ascending: false }),
                 supabase.from('public_holidays').select('*').order('date', { ascending: true })
             ]);
