@@ -101,10 +101,6 @@ export async function POST(request: Request) {
             const newRequestId = newRequest.id;
 
             // Fetch Requester & Manager Info
-            // We need full user list or specific manager lookup. 
-            // Better to fetch requester's profile to get manager_id, then fetch manager.
-
-            // Fetch Requester & Manager Info
             const { data: requesterProfile } = await adminSupabase
                 .from('users')
                 .select('*')
@@ -152,7 +148,11 @@ export async function POST(request: Request) {
                             }
                         })
                     }).catch(e => console.error("Email API Error:", e));
+                } else {
+                    console.error("Manager Profile or Email Not Found. ID:", requesterProfile.manager_id);
                 }
+            } else {
+                console.error("Requester has no Manager assigned. Cannot send notification. User ID:", publicUser.id);
             }
         }
 
