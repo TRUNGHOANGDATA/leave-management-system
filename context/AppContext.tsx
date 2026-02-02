@@ -194,17 +194,21 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             // Use API for Users (Bypass RLS)
             const [
                 usersResponse,
-                { data: requestsData, error: requestsError },
+                requestsResponse,
                 { data: holidaysData, error: holidaysError }
             ] = await Promise.all([
                 fetch('/api/users/directory'),
-                supabase.from('leave_requests').select('*, created_at').order('created_at', { ascending: false }),
+                fetch('/api/requests/list', { cache: 'no-store' }), // Explicit no-cache
                 supabase.from('public_holidays').select('*').order('date', { ascending: true })
             ]);
 
             const usersJson = await usersResponse.json();
             const usersData = usersJson.users;
             const usersError = usersJson.error;
+
+            const requestsJson = await requestsResponse.json();
+            const requestsData = requestsJson.requests;
+            const requestsError = requestsJson.error;
 
             if (usersError) throw new Error(usersError);
             if (requestsError) throw requestsError;
