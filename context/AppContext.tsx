@@ -197,7 +197,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
                 requestsResponse,
                 { data: holidaysData, error: holidaysError }
             ] = await Promise.all([
-                fetch('/api/users/directory'),
+                fetch('/api/users/directory', { cache: 'no-store' }),
                 fetch('/api/requests/list', { cache: 'no-store' }), // Explicit no-cache
                 supabase.from('public_holidays').select('*').order('date', { ascending: true })
             ]);
@@ -702,10 +702,24 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             users: prev.users.filter(u => u.id !== userId)
         }));
         try {
-            const { error } = await supabase.from('users').delete().eq('id', userId);
-            if (error) console.error("Delete User Error", error);
-            else refreshData();
-        } catch (e) { console.error("Delete User Exception", e); }
+            const response = await fetch('/api/users/delete', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ userId })
+            });
+            const result = await response.json();
+
+            if (!response.ok || result.error) {
+                console.error("Delete User Error:", result.error);
+                alert("Lỗi xoá nhân viên: " + result.error);
+                refreshData(); // Revert
+            } else {
+                refreshData();
+            }
+        } catch (e) {
+            console.error("Delete User Exception", e);
+            refreshData(); // Revert
+        }
     };
 
     // --- DB Operations ---
