@@ -18,7 +18,7 @@ export async function GET() {
         // Fetch minimal user data for directory
         const { data: users, error } = await supabase
             .from('users')
-            .select('id, name, email, department, role, manager_id, avatar_url, job_title')
+            .select('id, name, email, department, role, manager_id, avatar_url, job_title, employee_code, start_date, work_location, phone')
             .order('name')
 
         if (error) {
