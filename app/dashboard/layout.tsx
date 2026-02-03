@@ -38,7 +38,8 @@ export default async function DashboardLayout({
     let initialUser: User | null = null;
 
     // Fetch profile with dual lookup (auth_id OR id)
-    const { data: profileData } = await supabase
+    // Fetch profile using Admin Client for robustness
+    const { data: profileData } = await adminSupabase
         .from('users')
         .select('*')
         .or(`auth_id.eq.${user.id},id.eq.${user.id}`)
@@ -60,6 +61,17 @@ export default async function DashboardLayout({
             startDate: p.start_date,
             jobTitle: p.job_title,
             phone: p.phone,
+            annualLeaveRemaining: 0
+        };
+    } else {
+        // Fallback: Create minimal user from Auth Session
+        initialUser = {
+            id: user.id,
+            auth_id: user.id,
+            email: user.email!, // Email is required in Auth
+            name: user.email?.split('@')[0] || "User",
+            role: 'employee',
+            department: "",
             annualLeaveRemaining: 0
         };
     }
