@@ -291,7 +291,18 @@ const EmployeeEditDialog = ({
                     </DialogDescription>
                 </DialogHeader>
                 <div className="grid gap-4 py-4">
-                    {/* Employee ID Hidden */}
+                    {/* Employee Code */}
+                    <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="edit-code" className="text-right">Mã NV</Label>
+                        <Input
+                            id="edit-code"
+                            value={formData.employeeCode || ""}
+                            onChange={(e) => handleChange('employeeCode', e.target.value)}
+                            className="col-span-3 font-mono"
+                            placeholder="NV_XXXX"
+                        />
+                    </div>
+
                     <div className="grid grid-cols-4 items-center gap-4">
                         <Label htmlFor="edit-name" className="text-right">Họ và tên</Label>
                         <Input
@@ -407,13 +418,17 @@ export default function EmployeeManagementPage() {
     // Initial Sync with AppContext (Mock DB)
     useEffect(() => {
         if (settings.users.length > 0) {
-            let sourceUsers = settings.users;
+            let sourceUsers = [...settings.users];
 
+            // Filter: Manager only sees their department
             // Filter: Manager only sees their department
             if (currentUser && currentUser.role === 'manager') {
                 sourceUsers = sourceUsers.filter(u => u.department === currentUser.department);
             }
             // Admin / Director sees all -> no filter needed
+
+            // Sort by Employee Code Ascending
+            sourceUsers.sort((a, b) => (a.employeeCode || "ZZZ").localeCompare(b.employeeCode || "ZZZ"));
 
             const mappedEmployees: Employee[] = sourceUsers.map((u, index) => ({
                 order: String(index + 1),
@@ -697,6 +712,7 @@ export default function EmployeeManagementPage() {
             role: updatedEmp.role,
             department: updatedEmp.department,
             startDate: updatedEmp.startDate, // Update start date
+            employeeCode: updatedEmp.employeeCode, // Update Code
             managerId: updatedEmp.managerId || undefined,
             // Preserve avatar if we had it in settings, or let backend handle
             avatarUrl: settings.users.find(u => u.id === updatedEmp.id)?.avatarUrl
@@ -798,6 +814,10 @@ export default function EmployeeManagementPage() {
                                         <TableRow key={emp.id}>
                                             <TableCell className="text-slate-500 text-sm">{emp.order}</TableCell>
                                             <TableCell className="text-slate-700 text-sm font-medium">{emp.employeeCode || "---"}</TableCell>
+                                            <TableCell className="font-medium">{emp.fullName}</TableCell>
+                                            <TableCell>
+                                                {emp.startDate ? new Date(emp.startDate).toLocaleDateString('vi-VN') : "---"}
+                                            </TableCell>
                                             <TableCell className="font-medium text-sm text-slate-900">
                                                 <div>{emp.fullName}</div>
                                             </TableCell>
@@ -829,7 +849,7 @@ export default function EmployeeManagementPage() {
                                                             <Edit className="h-4 w-4" />
                                                         </Button>
                                                     )}
-                                                    {currentUser?.role === 'admin' && (
+                                                    {(currentUser?.role === 'admin' || currentUser?.role === 'director') && (
                                                         <Button variant="ghost" size="icon" className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50" onClick={() => setDeletingEmployeeId(emp.id)}>
                                                             <Trash2 className="h-4 w-4" />
                                                         </Button>

@@ -30,7 +30,7 @@ export function UpdateProfileDialog() {
         if (currentUser && open) {
             setName(currentUser.name || "");
             setDepartment(currentUser.department || "");
-            setManagerId(currentUser.managerId || "");
+            setManagerId(currentUser.managerId || "none");
             setJobTitle(currentUser.jobTitle || "");
             setPhone(currentUser.phone || "");
             setStartDate(currentUser.startDate || "");
@@ -44,38 +44,41 @@ export function UpdateProfileDialog() {
         u.id !== currentUser?.id
     ) || [];
 
-    const handleSave = async () => {
+    const handleSave = () => {
         if (!currentUser) return;
-        setIsSaving(true);
 
-        try {
-            await updateUser({
-                id: currentUser.id,
-                name,
-                department,
-                managerId: managerId === "none" ? undefined : managerId,
-                jobTitle,
-                phone,
-                startDate
-            });
+        // Optimistic UI: Close immediately
+        setOpen(false);
 
+        // Notify processing
+        toast({
+            title: "Đang xử lý...",
+            description: "Hệ thống đang cập nhật hồ sơ của bạn.",
+        });
+
+        updateUser({
+            id: currentUser.id,
+            name,
+            department,
+            managerId: managerId === "none" ? null : managerId,
+            jobTitle,
+            phone,
+            startDate
+        }).then(() => {
             toast({
                 title: "Cập nhật thành công",
                 description: "Thông tin hồ sơ của bạn đã được lưu.",
                 variant: "default",
                 className: "bg-green-50 border-green-200 text-green-800"
             });
-            setOpen(false);
-        } catch (error) {
+        }).catch((error) => {
+            console.error(error);
             toast({
                 title: "Lỗi cập nhật",
                 description: "Không thể lưu thông tin. Vui lòng thử lại.",
                 variant: "destructive"
             });
-            console.error(error);
-        } finally {
-            setIsSaving(false);
-        }
+        });
     };
 
     return (

@@ -22,7 +22,7 @@ export interface User {
     email: string;
     role: UserRole;
     department: string;
-    managerId?: string; // ID of the manager who approves requests
+    managerId?: string | null; // ID of the manager who approves requests
     avatarUrl?: string;
     employeeCode?: string; // Custom Code: NV_0001
     startDate?: string; // Date of joining
@@ -688,8 +688,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
                 work_location: user.workLocation,
                 job_title: user.jobTitle,
                 start_date: user.startDate, // Add start_date
-                phone: user.phone
-                // employee_code: user.employeeCode // Usually don't update code, but can if needed
+                phone: user.phone,
+                employee_code: user.employeeCode
             }).eq('id', user.id);
             if (error) console.error("Update User Error", error);
             else refreshData();

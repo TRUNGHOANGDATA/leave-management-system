@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabase";
+import { supabase } from "@/lib/supabaseClient";
 import { Database } from "@/lib/database.types";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -73,8 +73,8 @@ export function EmailSettings() {
                         key={t.id}
                         onClick={() => setSelectedTemplate(t)}
                         className={`w-full text-left px-3 py-2 rounded-md text-sm transition-colors ${selectedTemplate?.id === t.id
-                                ? "bg-slate-100 text-blue-600 font-medium"
-                                : "text-slate-600 hover:bg-slate-50"
+                            ? "bg-slate-100 text-blue-600 font-medium"
+                            : "text-slate-600 hover:bg-slate-50"
                             }`}
                     >
                         {t.name}
