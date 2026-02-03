@@ -18,6 +18,7 @@ export function EmailSettings() {
     const [selectedTemplate, setSelectedTemplate] = useState<EmailTemplate | null>(null);
     const [isSaving, setIsSaving] = useState(false);
     const [statusMessage, setStatusMessage] = useState<string | null>(null);
+    const [fetchError, setFetchError] = useState<string | null>(null);
 
     useEffect(() => {
         fetchTemplates();
@@ -25,14 +26,19 @@ export function EmailSettings() {
 
     const fetchTemplates = async () => {
         setLoading(true);
+        setFetchError(null);
+
         const { data, error } = await supabase.from('email_templates').select('*').order('name');
-        if (data) {
+
+        if (error) {
+            console.error("Error fetching templates:", error);
+            setFetchError(error.message);
+        } else if (data) {
             setTemplates(data);
             if (data.length > 0 && !selectedTemplate) {
                 setSelectedTemplate(data[0]);
             }
         }
-        if (error) console.error("Error fetching templates:", error);
         setLoading(false);
     };
 
@@ -68,6 +74,11 @@ export function EmailSettings() {
             {/* Sidebar List */}
             <div className="lg:col-span-1 space-y-2">
                 <h3 className="font-semibold text-slate-900 mb-4 px-2">Danh sách mẫu Email</h3>
+                {fetchError && (
+                    <div className="p-3 text-sm text-red-500 bg-red-50 rounded mb-2">
+                        Lỗi: {fetchError}
+                    </div>
+                )}
                 {templates.map(t => (
                     <button
                         key={t.id}
